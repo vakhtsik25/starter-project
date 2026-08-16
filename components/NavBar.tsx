@@ -25,6 +25,7 @@ export default function NavBar() {
   const isHome = pathname === "/" || pathname.startsWith("/company");
   const isStocks = pathname.startsWith("/stocks");
   const isScreener = pathname.startsWith("/screener");
+  const isCompare = pathname.startsWith("/compare");
 
   return (
     <header className="border-b border-border bg-surface">
@@ -42,6 +43,9 @@ export default function NavBar() {
           </TabLink>
           <TabLink href="/screener" active={isScreener}>
             Screener
+          </TabLink>
+          <TabLink href="/compare" active={isCompare}>
+            Compare
           </TabLink>
         </nav>
 

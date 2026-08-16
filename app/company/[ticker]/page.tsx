@@ -9,42 +9,23 @@ import StatementTable from "@/components/StatementTable";
 import { buildStatements } from "@/lib/statements";
 import { downloadStatementsCsv, downloadStatementsPdf } from "@/lib/export";
 import { downloadIcs } from "@/lib/ics";
+import { computeMetrics, type Dossier, type PriceData } from "@/lib/company-metrics";
+import { buildScorecard, type ScorecardItem } from "@/lib/scorecard";
 
-type Point = { year: number; value: number | null };
-type Filing = { form: string; date: string; title: string; url: string };
-type Dossier = {
-  ticker: string;
-  name: string;
-  sic: string | null;
-  incomeStatement: {
-    revenue: Point[];
-    netIncome: Point[];
-    eps: Point[];
-    operatingIncome: Point[];
-  };
-  balanceSheet: {
-    totalAssets: Point[];
-    totalLiabilities: Point[];
-    stockholdersEquity: Point[];
-    cash: Point[];
-  };
-  cashFlow: {
-    operatingCashFlow: Point[];
-    capex: Point[];
-    freeCashFlow: Point[];
-  };
-  sharesOutstanding: number | null;
-  filings: Filing[];
-  error?: string;
-};
-type PriceData = {
-  currentPrice: number;
-  previousClose: number;
-  fiftyTwoWeekHigh: number;
-  fiftyTwoWeekLow: number;
-  currency: string;
-  series: { date: string; close: number }[];
-  error?: string;
+type InsiderTransaction = {
+  ownerName: string;
+  officerTitle: string | null;
+  isDirector: boolean;
+  isOfficer: boolean;
+  isTenPercentOwner: boolean;
+  date: string;
+  code: string;
+  codeLabel: string;
+  shares: number;
+  pricePerShare: number;
+  value: number;
+  acquiredDisposed: "A" | "D" | null;
+  filingUrl: string;
 };
 
 function fmtUSD(n: number) {
@@ -52,14 +33,7 @@ function fmtUSD(n: number) {
   if (abs >= 1e12) return `$${(n / 1e12).toFixed(1)}T`;
   if (abs >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
   if (abs >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  return `$${n.toLocaleString()}`;
-}
-
-function latestKnown(points: Point[]): number | null {
-  for (let i = points.length - 1; i >= 0; i--) {
-    if (points[i].value !== null) return points[i].value;
-  }
-  return null;
+  return `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 
 // Dense label/value row for the Capital-IQ-style summary boxes.
@@ -82,7 +56,7 @@ function Row({
   );
 }
 
-const TABS = ["Overview", "Financials", "Filings"] as const;
+const TABS = ["Overview", "Analysis", "Financials", "Insiders", "Filings"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function CompanyDashboard() {
@@ -91,6 +65,7 @@ export default function CompanyDashboard() {
 
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [price, setPrice] = useState<PriceData | null>(null);
+  const [insiders, setInsiders] = useState<InsiderTransaction[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Overview");
@@ -102,6 +77,7 @@ export default function CompanyDashboard() {
     setError(null);
     setDossier(null);
     setPrice(null);
+    setInsiders(null);
 
     (async () => {
       const dossierRes = await fetch(`/api/company/${ticker}`);
@@ -115,11 +91,19 @@ export default function CompanyDashboard() {
       setDossier(dossierJson);
       setLoading(false);
 
-      // Price is best-effort — a dashboard is still useful without it.
+      // Price and insider activity are best-effort — the dashboard is still
+      // useful without either.
       try {
         const priceRes = await fetch(`/api/company/${ticker}/price`);
         const priceJson = await priceRes.json();
         if (!cancelled && priceRes.ok) setPrice(priceJson);
+      } catch {
+        // ignore
+      }
+      try {
+        const insidersRes = await fetch(`/api/company/${ticker}/insiders`);
+        const insidersJson = await insidersRes.json();
+        if (!cancelled && insidersRes.ok) setInsiders(insidersJson.transactions);
       } catch {
         // ignore
       }
@@ -132,27 +116,41 @@ export default function CompanyDashboard() {
 
   const statements = useMemo(() => (dossier ? buildStatements(dossier) : []), [dossier]);
 
-  const multiples = useMemo(() => {
-    if (!dossier) return null;
-    const eps = latestKnown(dossier.incomeStatement.eps);
-    const revenue = latestKnown(dossier.incomeStatement.revenue);
-    const netIncome = latestKnown(dossier.incomeStatement.netIncome);
-    const assets = latestKnown(dossier.balanceSheet.totalAssets);
-    const equity = latestKnown(dossier.balanceSheet.stockholdersEquity);
-    const shares = dossier.sharesOutstanding;
-    const marketCap = price && shares ? price.currentPrice * shares : null;
-    return {
-      eps,
-      revenue,
-      netIncome,
-      assets,
-      shares,
-      marketCap,
-      pe: price && eps !== null && eps > 0 ? price.currentPrice / eps : null,
-      pb: marketCap && equity && equity > 0 ? marketCap / equity : null,
-      ps: marketCap && revenue && revenue > 0 ? marketCap / revenue : null,
-    };
-  }, [dossier, price]);
+  const multiples = useMemo(
+    () => (dossier ? computeMetrics(dossier, price) : null),
+    [dossier, price]
+  );
+
+  const scorecard = useMemo(
+    () => (dossier ? buildScorecard(dossier) : []),
+    [dossier]
+  );
+
+  const growthMarginRows = useMemo(() => {
+    if (!dossier) return [];
+    const revenue = dossier.incomeStatement.revenue.filter(
+      (p): p is { year: number; value: number } => p.value !== null
+    );
+    const netIncome = dossier.incomeStatement.netIncome.filter(
+      (p): p is { year: number; value: number } => p.value !== null
+    );
+    const operatingIncome = dossier.incomeStatement.operatingIncome.filter(
+      (p): p is { year: number; value: number } => p.value !== null
+    );
+    return revenue.map((r, i) => {
+      const prior = i > 0 ? revenue[i - 1] : null;
+      const growth =
+        prior && prior.value !== 0 ? ((r.value - prior.value) / Math.abs(prior.value)) * 100 : null;
+      const ni = netIncome.find((n) => n.year === r.year)?.value;
+      const oi = operatingIncome.find((o) => o.year === r.year)?.value;
+      return {
+        year: r.year,
+        growth,
+        netMargin: ni != null && r.value > 0 ? (ni / r.value) * 100 : null,
+        opMargin: oi != null && r.value > 0 ? (oi / r.value) * 100 : null,
+      };
+    });
+  }, [dossier]);
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
@@ -316,6 +314,123 @@ export default function CompanyDashboard() {
             </div>
           )}
 
+          {tab === "Analysis" && (
+            <div className="space-y-6">
+              <section className="rounded-xl border border-border bg-surface p-5">
+                <h2 className="mb-2 text-lg font-semibold text-foreground">
+                  Scorecard
+                </h2>
+                <p className="mb-4 text-xs text-muted">
+                  Each line is a plain restatement of the numbers in the
+                  Financials tab — not a recommendation, and not a
+                  substitute for reading the actual filings.
+                </p>
+                {scorecard.length === 0 ? (
+                  <p className="text-sm text-muted">
+                    Not enough historical data to compute trend signals.
+                  </p>
+                ) : (
+                  <ul className="space-y-3">
+                    {scorecard.map((item: ScorecardItem) => (
+                      <li key={item.label} className="flex items-start gap-3">
+                        <span
+                          className={`mt-0.5 shrink-0 ${
+                            item.status === "good"
+                              ? "text-positive"
+                              : item.status === "bad"
+                              ? "text-negative"
+                              : item.status === "warn"
+                              ? "text-negative"
+                              : "text-muted"
+                          }`}
+                        >
+                          {item.status === "good"
+                            ? "✅"
+                            : item.status === "bad"
+                            ? "❌"
+                            : item.status === "warn"
+                            ? "⚠️"
+                            : "•"}
+                        </span>
+                        <div>
+                          <div className="text-sm font-medium text-foreground">
+                            {item.label}
+                          </div>
+                          <div className="text-sm text-muted">{item.detail}</div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section className="rounded-xl border border-border bg-surface p-5">
+                <h2 className="mb-4 text-lg font-semibold text-foreground">
+                  Growth &amp; Margin Trend
+                </h2>
+                {growthMarginRows.length === 0 ? (
+                  <p className="text-sm text-muted">No data available.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-muted">
+                          <th className="pb-2 pr-4">Metric</th>
+                          {growthMarginRows.map((r) => (
+                            <th key={r.year} className="pb-2 pl-4 text-right">
+                              {r.year}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-t border-border">
+                          <td className="py-2 pr-4 font-medium text-foreground">
+                            Revenue Growth YoY
+                          </td>
+                          {growthMarginRows.map((r) => (
+                            <td
+                              key={r.year}
+                              className={`py-2 pl-4 text-right tabular-nums ${
+                                r.growth == null
+                                  ? "text-muted"
+                                  : r.growth >= 0
+                                  ? "text-positive"
+                                  : "text-negative"
+                              }`}
+                            >
+                              {r.growth != null ? `${r.growth >= 0 ? "+" : ""}${r.growth.toFixed(1)}%` : "n/a"}
+                            </td>
+                          ))}
+                        </tr>
+                        <tr className="border-t border-border">
+                          <td className="py-2 pr-4 font-medium text-foreground">
+                            Net Margin
+                          </td>
+                          {growthMarginRows.map((r) => (
+                            <td key={r.year} className="py-2 pl-4 text-right tabular-nums text-foreground">
+                              {r.netMargin != null ? `${r.netMargin.toFixed(1)}%` : "n/a"}
+                            </td>
+                          ))}
+                        </tr>
+                        <tr className="border-t border-border">
+                          <td className="py-2 pr-4 font-medium text-foreground">
+                            Operating Margin
+                          </td>
+                          {growthMarginRows.map((r) => (
+                            <td key={r.year} className="py-2 pl-4 text-right tabular-nums text-foreground">
+                              {r.opMargin != null ? `${r.opMargin.toFixed(1)}%` : "n/a"}
+                            </td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
+
           {tab === "Financials" && (
             <div className="space-y-6">
               <div className="flex flex-wrap gap-2">
@@ -348,6 +463,82 @@ export default function CompanyDashboard() {
                 </section>
               ))}
             </div>
+          )}
+
+          {tab === "Insiders" && (
+            <section className="rounded-xl border border-border bg-surface p-5">
+              <p className="mb-4 text-xs text-muted">
+                Recent Form 4 filings from SEC EDGAR — officers, directors,
+                and 10%+ owners are required to report trades within 2
+                business days. Not all codes represent a discretionary
+                buy/sell decision (e.g. option exercises and tax
+                withholding are largely mechanical).
+              </p>
+              {!insiders ? (
+                <div className="animate-pulse space-y-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-8 rounded bg-background" />
+                  ))}
+                </div>
+              ) : insiders.length === 0 ? (
+                <p className="text-sm text-muted">No recent insider activity found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-muted">
+                        <th className="pb-2 pr-4">Insider</th>
+                        <th className="pb-2 pr-4">Date</th>
+                        <th className="pb-2 pr-4">Transaction</th>
+                        <th className="pb-2 pr-4 text-right">Shares</th>
+                        <th className="pb-2 pr-4 text-right">Price</th>
+                        <th className="pb-2 text-right">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {insiders.map((t, i) => (
+                        <tr key={i} className="border-t border-border">
+                          <td className="py-2 pr-4">
+                            <div className="font-medium text-foreground">
+                              {t.ownerName}
+                            </div>
+                            <div className="text-xs text-muted">
+                              {t.officerTitle ||
+                                (t.isDirector
+                                  ? "Director"
+                                  : t.isTenPercentOwner
+                                  ? "10%+ Owner"
+                                  : "")}
+                            </div>
+                          </td>
+                          <td className="py-2 pr-4 text-muted">{t.date}</td>
+                          <td
+                            className={`py-2 pr-4 font-medium ${
+                              t.code === "P"
+                                ? "text-positive"
+                                : t.code === "S"
+                                ? "text-negative"
+                                : "text-muted"
+                            }`}
+                          >
+                            {t.codeLabel}
+                          </td>
+                          <td className="py-2 pr-4 text-right tabular-nums text-foreground">
+                            {t.shares.toLocaleString()}
+                          </td>
+                          <td className="py-2 pr-4 text-right tabular-nums text-foreground">
+                            {t.pricePerShare > 0 ? `$${t.pricePerShare.toFixed(2)}` : "n/a"}
+                          </td>
+                          <td className="py-2 text-right tabular-nums text-foreground">
+                            {t.value > 0 ? fmtUSD(t.value) : "n/a"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
           )}
 
           {tab === "Filings" && (
