@@ -3,17 +3,15 @@
 import { useEffect, useState } from "react";
 import MarketOverview, { type IndexData } from "@/components/MarketOverview";
 import NewsList, { type NewsItem } from "@/components/NewsList";
-import UpcomingEarnings, { type UpcomingEarning } from "@/components/UpcomingEarnings";
+import EarningsCalendarPreview from "@/components/EarningsCalendarPreview";
+import type { CalendarEntry } from "@/components/EarningsCalendarGrid";
 import { buildMarketSnapshot } from "@/lib/market-snapshot";
 import { loadProfile, type Profile } from "@/lib/profile";
 
 export default function Home() {
   const [indices, setIndices] = useState<IndexData[] | null>(null);
   const [news, setNews] = useState<NewsItem[] | null>(null);
-  const [earnings, setEarnings] = useState<{
-    upcoming: UpcomingEarning[];
-    windowDays: number;
-  } | null>(null);
+  const [earnings, setEarnings] = useState<CalendarEntry[] | null>(null);
   const [now, setNow] = useState<number | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
 
@@ -61,9 +59,9 @@ export default function Home() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/market/earnings-calendar?days=21");
+        const res = await fetch("/api/market/earnings-calendar");
         const json = await res.json();
-        if (!cancelled && res.ok) setEarnings(json);
+        if (!cancelled && res.ok) setEarnings(json.upcoming);
       } catch {
         // Best-effort.
       }
@@ -130,26 +128,21 @@ export default function Home() {
             ))}
           </div>
         ) : (
-          <NewsList news={news} now={now} />
+          <NewsList news={news} now={now} initialCount={4} />
         )}
       </section>
 
       <section className="mb-10 rounded-xl border border-border bg-surface p-5">
         <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
-          Upcoming Earnings
+          Earnings Calendar
         </h2>
         <p className="mb-3 text-xs text-muted">
-          Curated large-cap list, not the full market — see the Screener for
-          the full universe.
+          Curated large-cap list, not the full market.
         </p>
         {earnings === null ? (
-          <div className="animate-pulse space-y-2">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-8 rounded bg-background" />
-            ))}
-          </div>
+          <div className="h-32 animate-pulse rounded bg-background" />
         ) : (
-          <UpcomingEarnings upcoming={earnings.upcoming} windowDays={earnings.windowDays} />
+          <EarningsCalendarPreview entries={earnings} />
         )}
       </section>
 
