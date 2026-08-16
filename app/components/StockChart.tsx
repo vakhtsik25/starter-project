@@ -10,6 +10,7 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import RangeBrush from "./RangeBrush";
+import SearchBox from "@/components/SearchBox";
 
 const OTHER_PERIODS = ["1D", "5D", "1M", "6M"] as const;
 const YEAR_PERIODS = ["1Y", "2Y", "3Y", "4Y", "5Y"] as const;
@@ -259,11 +260,14 @@ export default function StockChart({
       >
         {!isEmbedded && (
           <>
-            <input
-              value={symbolInput}
-              onChange={(e) => setSymbolInput(e.target.value)}
-              placeholder="Symbol (e.g. AAPL)"
-              className="rounded border border-black/10 dark:border-white/15 bg-transparent px-3 py-1.5 text-sm font-mono uppercase w-40"
+            <SearchBox
+              compact
+              onSelect={(t) => {
+                setSymbolInput(t);
+                setSymbol(t);
+              }}
+              placeholder="Symbol or company"
+              inputClassName="rounded border border-black/10 dark:border-white/15 bg-transparent px-3 py-1.5 text-sm font-mono uppercase w-40"
             />
             <button
               type="submit"

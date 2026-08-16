@@ -1,24 +1,35 @@
 import { NextResponse } from "next/server";
 import { STOCK_UNIVERSE } from "@/lib/stock-universe";
 import { getStockPerformance } from "@/lib/stock-performance";
+import { getAnalystSnapshot } from "@/lib/stock-analysts";
 
 export async function GET() {
   const stocks = await Promise.all(
     STOCK_UNIVERSE.map(async (entry) => {
-      try {
-        const result = await getStockPerformance(entry.ticker);
-        if (!result) {
-          return { ...entry, price: null, performance: {}, error: "No data" };
-        }
-        return { ...entry, price: result.price, performance: result.performance };
-      } catch (err: any) {
+      const [perfResult, analystResult] = await Promise.all([
+        getStockPerformance(entry.ticker).catch(() => null),
+        getAnalystSnapshot(entry.ticker).catch(() => null),
+      ]);
+
+      if (!perfResult) {
         return {
           ...entry,
           price: null,
           performance: {},
-          error: err?.message || "Failed to fetch",
+          fiftyTwoWeekHigh: null,
+          fiftyTwoWeekLow: null,
+          analysts: null,
+          error: "No data",
         };
       }
+      return {
+        ...entry,
+        price: perfResult.price,
+        performance: perfResult.performance,
+        fiftyTwoWeekHigh: perfResult.fiftyTwoWeekHigh,
+        fiftyTwoWeekLow: perfResult.fiftyTwoWeekLow,
+        analysts: analystResult,
+      };
     })
   );
 
