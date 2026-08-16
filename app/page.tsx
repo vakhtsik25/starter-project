@@ -98,9 +98,9 @@ export default function Home() {
         {indices ? (
           <MarketOverview indices={indices} />
         ) : (
-          <div className="animate-pulse space-y-2">
+          <div className="grid animate-pulse grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-10 rounded bg-background" />
+              <div key={i} className="h-20 rounded-xl bg-background" />
             ))}
           </div>
         )}
