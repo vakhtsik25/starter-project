@@ -158,7 +158,7 @@ export default function SearchBox({
                 }`}
               >
                 <span className="text-foreground">{s.name}</span>
-                <span className="ml-2 shrink-0 font-mono text-xs text-muted">
+                <span className="ml-2 shrink-0 text-xs text-muted">
                   {s.ticker}
                 </span>
               </button>

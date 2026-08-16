@@ -267,7 +267,7 @@ export default function StockChart({
                 setSymbol(t);
               }}
               placeholder="Symbol or company"
-              inputClassName="rounded border border-black/10 dark:border-white/15 bg-transparent px-3 py-1.5 text-sm font-mono uppercase w-40"
+              inputClassName="rounded border border-black/10 dark:border-white/15 bg-transparent px-3 py-1.5 text-sm uppercase w-40"
             />
             <button
               type="submit"

@@ -111,7 +111,7 @@ export default function PeerValuation({
           onChange={(e) => setPeerInput(e.target.value)}
           placeholder="Add peer ticker, e.g. MSFT"
           disabled={peers.length >= MAX_PEERS}
-          className="w-48 rounded border border-border bg-transparent px-3 py-1.5 text-sm font-mono uppercase disabled:opacity-50"
+          className="w-48 rounded border border-border bg-transparent px-3 py-1.5 text-sm uppercase disabled:opacity-50"
         />
         <button
           type="submit"
