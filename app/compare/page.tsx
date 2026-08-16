@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import SearchBox from "@/components/SearchBox";
 import {
   computeMetrics,
   type CompanyMetrics,
@@ -74,7 +75,7 @@ function CompareContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [companies, setCompanies] = useState<CompanyState[]>([]);
-  const [input, setInput] = useState("");
+  const [searchKey, setSearchKey] = useState(0);
 
   const fetchCompany = useCallback(async (ticker: string) => {
     setCompanies((prev) =>
@@ -139,19 +140,14 @@ function CompareContent() {
     router.replace(query ? `/compare?tickers=${query}` : "/compare");
   }
 
-  function addTicker(e: React.FormEvent) {
-    e.preventDefault();
-    const ticker = input.trim().toUpperCase();
+  function addTicker(ticker: string) {
     if (!ticker) return;
-    if (companies.some((c) => c.ticker === ticker)) {
-      setInput("");
-      return;
-    }
+    if (companies.some((c) => c.ticker === ticker)) return;
     if (companies.length >= MAX_TICKERS) return;
     const next = [...companies, { ticker, loading: true }];
     setCompanies(next);
     syncUrl(next.map((c) => c.ticker));
-    setInput("");
+    setSearchKey((k) => k + 1);
     fetchCompany(ticker);
   }
 
@@ -171,22 +167,15 @@ function CompareContent() {
         margins side by side.
       </p>
 
-      <form onSubmit={addTicker} className="mb-6 flex gap-2">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Add a ticker, e.g. AAPL"
+      <div className="mb-6 max-w-md">
+        <SearchBox
+          key={searchKey}
+          onSelect={addTicker}
+          submitLabel="Add"
+          placeholder="Add a ticker or company, e.g. Apple"
           disabled={companies.length >= MAX_TICKERS}
-          className="w-64 rounded-lg border border-border bg-surface px-4 py-2 uppercase text-foreground focus:border-accent focus:outline-none disabled:opacity-50"
         />
-        <button
-          type="submit"
-          disabled={companies.length >= MAX_TICKERS}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-50"
-        >
-          Add
-        </button>
-      </form>
+      </div>
 
       {companies.length === 0 ? (
         <p className="text-sm text-muted">

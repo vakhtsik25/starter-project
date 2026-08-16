@@ -10,6 +10,16 @@ export type IndexData = {
   error?: string;
 };
 
+// Shorter labels for the compact tile — the full name still shows on hover
+// (title attribute) for anyone who wants it.
+const SHORT_NAME: Record<string, string> = {
+  "S&P 500": "S&P 500",
+  "Nasdaq Composite": "Nasdaq",
+  "Dow Jones Industrial Average": "Dow",
+  "Russell 2000": "Russell 2K",
+  "CBOE Volatility Index (VIX)": "VIX",
+};
+
 function Sparkline({
   series,
   positive,
@@ -23,7 +33,7 @@ function Sparkline({
   const max = Math.max(...closes);
   const span = max - min || 1;
   const width = 100;
-  const height = 32;
+  const height = 24;
   const points = closes
     .map((c, i) => {
       const x = (i / (closes.length - 1)) * width;
@@ -34,7 +44,7 @@ function Sparkline({
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      className="h-8 w-24"
+      className="h-6 w-full"
       preserveAspectRatio="none"
     >
       <polyline
@@ -57,53 +67,44 @@ function fmtNumber(n: number) {
 
 export default function MarketOverview({ indices }: { indices: IndexData[] }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-muted">
-            <th className="pb-2">Index</th>
-            <th className="pb-2 text-right">Last</th>
-            <th className="pb-2 text-right">Change</th>
-            <th className="pb-2 text-right">1yr trend</th>
-          </tr>
-        </thead>
-        <tbody>
-          {indices.map((idx) => (
-            <tr key={idx.symbol} className="border-t border-border">
-              <td className="py-3 font-medium text-foreground">{idx.name}</td>
-              {idx.error || idx.currentPrice == null ? (
-                <td colSpan={3} className="py-3 text-right text-muted">
-                  n/a
-                </td>
-              ) : (
-                <>
-                  <td className="py-3 text-right tabular-nums text-foreground">
-                    {fmtNumber(idx.currentPrice)}
-                  </td>
-                  <td
-                    className={`py-3 text-right tabular-nums ${
-                      (idx.changePct ?? 0) >= 0 ? "text-positive" : "text-negative"
-                    }`}
-                  >
-                    {(idx.changePct ?? 0) >= 0 ? "+" : ""}
-                    {idx.changePct?.toFixed(2)}%
-                  </td>
-                  <td className="py-3">
-                    <div className="flex justify-end">
-                      {idx.series && (
-                        <Sparkline
-                          series={idx.series}
-                          positive={(idx.changePct ?? 0) >= 0}
-                        />
-                      )}
-                    </div>
-                  </td>
-                </>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      {indices.map((idx) => {
+        const positive = (idx.changePct ?? 0) >= 0;
+        const hasData = !idx.error && idx.currentPrice != null;
+        return (
+          <div
+            key={idx.symbol}
+            title={idx.name}
+            className="rounded-xl border border-border bg-background/40 px-3 py-2.5"
+          >
+            <div className="truncate text-xs font-medium text-muted">
+              {SHORT_NAME[idx.name] ?? idx.name}
+            </div>
+            {hasData ? (
+              <>
+                <div className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+                  {fmtNumber(idx.currentPrice!)}
+                </div>
+                <div
+                  className={`text-xs font-medium tabular-nums ${
+                    positive ? "text-positive" : "text-negative"
+                  }`}
+                >
+                  {positive ? "+" : ""}
+                  {idx.changePct?.toFixed(2)}%
+                </div>
+                {idx.series && (
+                  <div className="mt-1">
+                    <Sparkline series={idx.series} positive={positive} />
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="mt-1 text-sm text-muted">n/a</div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

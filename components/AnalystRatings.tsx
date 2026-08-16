@@ -16,12 +16,16 @@ export type AnalystData = {
   } | null;
 };
 
+// A proper diverging scale (sell ← hold → buy), not five arbitrary hues:
+// two arms off the app's real --positive/--negative tokens, gray midpoint.
+// Ties to the theme automatically in both light and dark — no separate
+// dark-mode palette to keep in sync.
 const SEGMENTS = [
-  { key: "strongBuy", label: "Strong Buy", color: "#16a34a" },
-  { key: "buy", label: "Buy", color: "#4ade80" },
-  { key: "hold", label: "Hold", color: "#d4d4d8" },
-  { key: "sell", label: "Sell", color: "#f87171" },
-  { key: "strongSell", label: "Strong Sell", color: "#dc2626" },
+  { key: "strongBuy", label: "Strong Buy", color: "var(--positive)" },
+  { key: "buy", label: "Buy", color: "color-mix(in srgb, var(--positive) 55%, var(--surface))" },
+  { key: "hold", label: "Hold", color: "var(--border)" },
+  { key: "sell", label: "Sell", color: "color-mix(in srgb, var(--negative) 55%, var(--surface))" },
+  { key: "strongSell", label: "Strong Sell", color: "var(--negative)" },
 ] as const;
 
 function recommendationLabel(key: string | null) {

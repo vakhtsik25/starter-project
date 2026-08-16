@@ -34,6 +34,7 @@ export default function NavBar() {
   const isHome = pathname === "/" || pathname.startsWith("/company");
   const isStocks = pathname.startsWith("/stocks");
   const isScreener = pathname.startsWith("/screener");
+  const isEarnings = pathname.startsWith("/earnings-calendar");
   const isCompare = pathname.startsWith("/compare");
   const isPortfolio = pathname.startsWith("/portfolio");
 
@@ -54,6 +55,9 @@ export default function NavBar() {
             </TabLink>
             <TabLink href="/screener" active={isScreener}>
               Screener
+            </TabLink>
+            <TabLink href="/earnings-calendar" active={isEarnings}>
+              Earnings
             </TabLink>
             <TabLink href="/compare" active={isCompare}>
               Compare

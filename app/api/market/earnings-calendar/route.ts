@@ -1,19 +1,21 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { STOCK_UNIVERSE } from "@/lib/stock-universe";
 import { getEarningsInfo } from "@/lib/earnings-calendar";
 
-const WINDOW_DAYS = 21;
-
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const daysParam = request.nextUrl.searchParams.get("days");
+  const days = daysParam ? parseInt(daysParam, 10) : null;
   const now = Date.now();
-  const windowEnd = now + WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  const windowEnd = days != null ? now + days * 24 * 60 * 60 * 1000 : null;
 
   const results = await Promise.all(
     STOCK_UNIVERSE.map(async (entry) => {
       const info = await getEarningsInfo(entry.ticker);
       if (!info?.nextEarningsDate) return null;
-      const dateMs = new Date(info.nextEarningsDate).getTime();
-      if (dateMs < now || dateMs > windowEnd) return null;
+      if (windowEnd != null) {
+        const dateMs = new Date(info.nextEarningsDate).getTime();
+        if (dateMs < now || dateMs > windowEnd) return null;
+      }
       return {
         ticker: entry.ticker,
         name: entry.name,
@@ -27,5 +29,5 @@ export async function GET() {
     .filter((r): r is NonNullable<typeof r> => r !== null)
     .sort((a, b) => a.nextEarningsDate.localeCompare(b.nextEarningsDate));
 
-  return NextResponse.json({ upcoming, windowDays: WINDOW_DAYS });
+  return NextResponse.json({ upcoming, windowDays: days });
 }

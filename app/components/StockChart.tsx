@@ -11,17 +11,35 @@ import {
 } from "lightweight-charts";
 import RangeBrush from "./RangeBrush";
 import SearchBox from "@/components/SearchBox";
+import { readCssVar, watchThemeChange } from "@/lib/theme-colors";
 
 const OTHER_PERIODS = ["1D", "5D", "1M", "6M"] as const;
 const YEAR_PERIODS = ["1Y", "2Y", "3Y", "4Y", "5Y"] as const;
 const RANGES = [...OTHER_PERIODS, ...YEAR_PERIODS] as const;
 type RangeKey = (typeof RANGES)[number];
 
+// Colors resolved from CSS vars at runtime (see getChartColors) — these
+// var names double as the Tailwind classes used in the legend below, so
+// the line color and its label always match.
 const MA_CONFIG = [
-  { key: "ma5", label: "5D", period: 5, color: "#f59e0b" },
-  { key: "ma30", label: "30D", period: 30, color: "#3b82f6" },
-  { key: "ma126", label: "6M", period: 126, color: "#a855f7" },
+  { key: "ma5", label: "5D", period: 5, varName: "--chart-series-1", twClass: "text-chart-series-1" },
+  { key: "ma30", label: "30D", period: 30, varName: "--chart-series-2", twClass: "text-chart-series-2" },
+  { key: "ma126", label: "6M", period: 126, varName: "--chart-series-3", twClass: "text-chart-series-3" },
 ] as const;
+
+// lightweight-charts renders to <canvas> and needs literal resolved color
+// strings, not living CSS var() references — read the theme's current
+// values once here, and again whenever the theme toggle flips.
+function getChartColors() {
+  return {
+    text: readCssVar("--muted"),
+    grid: readCssVar("--border"),
+    positive: readCssVar("--positive"),
+    negative: readCssVar("--negative"),
+    accent: readCssVar("--accent"),
+    ma: MA_CONFIG.map((ma) => readCssVar(ma.varName)),
+  };
+}
 
 const STALE_MS = 15 * 60 * 1000;
 
@@ -141,37 +159,38 @@ export default function StockChart({
   // Create chart once
   useEffect(() => {
     if (!containerRef.current) return;
+    const colors = getChartColors();
     const chart = createChart(containerRef.current, {
       height: 420,
       layout: {
         background: { color: "transparent" },
-        textColor: "#71717a",
+        textColor: colors.text,
       },
       grid: {
-        vertLines: { color: "rgba(113,113,122,0.1)" },
-        horzLines: { color: "rgba(113,113,122,0.1)" },
+        vertLines: { color: colors.grid },
+        horzLines: { color: colors.grid },
       },
       timeScale: { timeVisible: true, secondsVisible: false },
     });
     chartRef.current = chart;
     candleSeriesRef.current = chart.addSeries(CandlestickSeries, {
-      upColor: "#22c55e",
-      downColor: "#ef4444",
+      upColor: colors.positive,
+      downColor: colors.negative,
       borderVisible: false,
-      wickUpColor: "#22c55e",
-      wickDownColor: "#ef4444",
+      wickUpColor: colors.positive,
+      wickDownColor: colors.negative,
       visible: false,
     });
     priceLineSeriesRef.current = chart.addSeries(LineSeries, {
-      color: "#2563eb",
+      color: colors.accent,
       lineWidth: 2,
       priceLineVisible: false,
     });
     maSeriesRef.current = Object.fromEntries(
-      MA_CONFIG.map((ma) => [
+      MA_CONFIG.map((ma, i) => [
         ma.key,
         chart.addSeries(LineSeries, {
-          color: ma.color,
+          color: colors.ma[i],
           lineWidth: 2,
           priceLineVisible: false,
           lastValueVisible: false,
@@ -189,8 +208,31 @@ export default function StockChart({
     resizeObserver.observe(containerRef.current);
     chart.applyOptions({ width: containerRef.current.clientWidth });
 
+    // Re-resolve and reapply colors whenever the theme toggle flips.
+    const stopWatching = watchThemeChange(() => {
+      const next = getChartColors();
+      chart.applyOptions({
+        layout: { textColor: next.text },
+        grid: {
+          vertLines: { color: next.grid },
+          horzLines: { color: next.grid },
+        },
+      });
+      candleSeriesRef.current?.applyOptions({
+        upColor: next.positive,
+        downColor: next.negative,
+        wickUpColor: next.positive,
+        wickDownColor: next.negative,
+      });
+      priceLineSeriesRef.current?.applyOptions({ color: next.accent });
+      MA_CONFIG.forEach((ma, i) => {
+        maSeriesRef.current[ma.key]?.applyOptions({ color: next.ma[i] });
+      });
+    });
+
     return () => {
       resizeObserver.disconnect();
+      stopWatching();
       chart.remove();
     };
   }, []);
@@ -267,7 +309,7 @@ export default function StockChart({
                 setSymbol(t);
               }}
               placeholder="Symbol or company"
-              inputClassName="rounded border border-black/10 dark:border-white/15 bg-transparent px-3 py-1.5 text-sm uppercase w-40"
+              inputClassName="rounded border border-border bg-transparent px-3 py-1.5 text-sm uppercase w-40"
             />
             <button
               type="submit"
@@ -288,14 +330,14 @@ export default function StockChart({
                 className={`rounded px-2.5 py-1.5 text-sm font-medium ${
                   range === r
                     ? "bg-foreground text-background"
-                    : "bg-black/[.04] dark:bg-white/[.08] text-zinc-600 dark:text-zinc-400"
+                    : "bg-background text-muted"
                 }`}
               >
                 {r}
               </button>
             ))}
           </div>
-          <span className="h-5 w-px bg-black/10 dark:bg-white/15" aria-hidden="true" />
+          <span className="h-5 w-px bg-border" aria-hidden="true" />
           <div className="flex gap-1" role="group" aria-label="Years">
             {YEAR_PERIODS.map((r) => (
               <button
@@ -305,7 +347,7 @@ export default function StockChart({
                 className={`rounded px-2.5 py-1.5 text-sm font-medium ${
                   range === r
                     ? "bg-foreground text-background"
-                    : "bg-black/[.04] dark:bg-white/[.08] text-zinc-600 dark:text-zinc-400"
+                    : "bg-background text-muted"
                 }`}
               >
                 {r}
@@ -323,7 +365,7 @@ export default function StockChart({
               className={`rounded px-2.5 py-1.5 text-sm font-medium capitalize ${
                 chartType === type
                   ? "bg-foreground text-background"
-                  : "bg-black/[.04] dark:bg-white/[.08] text-zinc-600 dark:text-zinc-400"
+                  : "bg-background text-muted"
               }`}
             >
               {type}
@@ -335,7 +377,7 @@ export default function StockChart({
           type="button"
           onClick={() => fetchData(symbol, range)}
           disabled={loading}
-          className="ml-auto rounded border border-black/10 dark:border-white/15 px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+          className="ml-auto rounded border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-50"
         >
           {loading ? "Refreshing…" : "Refresh"}
         </button>
@@ -355,30 +397,30 @@ export default function StockChart({
               disabled={!isDailyInterval}
               onChange={() => toggleMA(ma.key)}
             />
-            <span style={{ color: ma.color }}>{ma.label} MA</span>
+            <span className={`font-medium ${ma.twClass}`}>{ma.label} MA</span>
           </label>
         ))}
         {!isDailyInterval && result && (
-          <span className="text-zinc-400 text-xs">
+          <span className="text-muted text-xs">
             (moving averages need daily candles — switch to 1M/6M/1Y/2Y)
           </span>
         )}
         {lastUpdatedLabel && (
-          <span className="text-zinc-400 text-xs ml-auto">
+          <span className="text-muted text-xs ml-auto">
             Updated {lastUpdatedLabel}
           </span>
         )}
       </div>
 
       {error && (
-        <div className="text-sm text-red-500 bg-red-500/10 rounded px-3 py-2">
+        <div className="text-sm text-negative bg-negative/10 rounded px-3 py-2">
           {error}
         </div>
       )}
 
       <div
         ref={containerRef}
-        className="w-full rounded border border-black/10 dark:border-white/15"
+        className="w-full rounded border border-border"
       />
 
       {result && result.candles.length > 1 && (

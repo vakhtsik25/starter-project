@@ -2,13 +2,15 @@ import { NextResponse } from "next/server";
 import { STOCK_UNIVERSE } from "@/lib/stock-universe";
 import { getStockPerformance } from "@/lib/stock-performance";
 import { getAnalystSnapshot } from "@/lib/stock-analysts";
+import { getEarningsInfo } from "@/lib/earnings-calendar";
 
 export async function GET() {
   const stocks = await Promise.all(
     STOCK_UNIVERSE.map(async (entry) => {
-      const [perfResult, analystResult] = await Promise.all([
+      const [perfResult, analystResult, earningsResult] = await Promise.all([
         getStockPerformance(entry.ticker).catch(() => null),
         getAnalystSnapshot(entry.ticker).catch(() => null),
+        getEarningsInfo(entry.ticker).catch(() => null),
       ]);
 
       if (!perfResult) {
@@ -19,6 +21,7 @@ export async function GET() {
           fiftyTwoWeekHigh: null,
           fiftyTwoWeekLow: null,
           analysts: null,
+          nextEarningsDate: earningsResult?.nextEarningsDate ?? null,
           error: "No data",
         };
       }
@@ -29,6 +32,7 @@ export async function GET() {
         fiftyTwoWeekHigh: perfResult.fiftyTwoWeekHigh,
         fiftyTwoWeekLow: perfResult.fiftyTwoWeekLow,
         analysts: analystResult,
+        nextEarningsDate: earningsResult?.nextEarningsDate ?? null,
       };
     })
   );
