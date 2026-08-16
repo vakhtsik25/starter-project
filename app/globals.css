@@ -39,12 +39,80 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-positive: var(--positive);
   --color-negative: var(--negative);
-  --font-sans: var(--font-geist-sans);
+
+  /* System-font stack first — on Apple devices this resolves to actual SF
+     Pro (the only legitimate way to get it: SF Pro isn't licensed for
+     embedding as a webfont). Geist, already self-hosted via next/font, is
+     the fallback everywhere else — a close, high-quality match. */
+  --font-sans: -apple-system, BlinkMacSystemFont, var(--font-geist-sans),
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: var(--font-geist-mono);
+
+  /* Softer, more generous corners across the whole app — the biggest single
+     lever for a "liquid glass" feel without touching legibility. */
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  /* A barely-there color wash for depth. Kept intentionally subtle — this
+     is ambience, not decoration; it must never compete with data.
+     NOTE: values are precomputed static rgba, not color-mix() — Tailwind
+     v4's Lightning CSS pass silently mangles hand-authored color-mix() in
+     plain CSS (verified: it strips backdrop-filter and collapses
+     color-mix() down to the bare var(), losing the alpha blend entirely).
+     Tailwind's own opacity-modifier utilities (bg-foo/NN in className) are
+     unaffected — this is only a risk in authored CSS like this file. */
+  background-image: radial-gradient(
+      at 15% -10%,
+      rgba(37, 99, 235, 0.07),
+      transparent 55%
+    ),
+    radial-gradient(at 100% 0%, rgba(22, 163, 74, 0.05), transparent 45%);
+  background-attachment: fixed;
+}
+
+.dark body {
+  background-image: radial-gradient(
+      at 15% -10%,
+      rgba(59, 130, 246, 0.1),
+      transparent 55%
+    ),
+    radial-gradient(at 100% 0%, rgba(34, 197, 94, 0.07), transparent 45%);
+}
+
+/* Content surfaces (data tables, statement panels, etc.) stay OPAQUE for
+   legibility — Apple's own Liquid Glass guidance reserves translucency for
+   chrome (navigation, controls), not the content underneath it. This rule
+   only adds depth (shadow) to the existing bg-surface utility; it does not
+   touch background-color or opacity. Static rgba, see note above. */
+.bg-surface {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 12px 32px -12px rgba(0, 0, 0, 0.12);
+}
+
+.dark .bg-surface {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    0 12px 32px -12px rgba(0, 0, 0, 0.55);
+}
+
+/* Smooth, quick transitions on the interactive surfaces that actually
+   change state — not a blanket `*` rule, which causes jank on layout
+   changes and repaints unrelated properties. */
+button,
+a,
+input,
+select {
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease,
+    color 0.15s ease;
 }

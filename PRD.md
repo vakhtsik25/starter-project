@@ -180,6 +180,58 @@ collisions, both reconciled:
   few functions. Verified rebuilt clean and re-tested every tab plus
   `/portfolio` afterward.
 
+### Milestone 9 — Design refresh: typography + "liquid glass" chrome (shipped)
+User asked for the font and overall design to be more refined, specifically
+referencing Apple's "Liquid Glass" language. Two things happened:
+
+- [x] **Found and fixed a real bug**: `app/globals.css`'s `body` rule had a
+  hardcoded `font-family: Arial, Helvetica, sans-serif` left over from the
+  original create-next-app scaffold — it was silently overriding the Geist
+  font that `layout.tsx` was already loading via `next/font`, meaning the
+  **entire app had been rendering in plain Arial the whole time**. Fixed by
+  routing `body`'s font through the theme's `--font-sans` token properly.
+- [x] **Font stack**: `-apple-system, BlinkMacSystemFont` first, then Geist,
+  then system fallbacks. On real Apple hardware this resolves to actual SF
+  Pro — the only legitimate way to get it, since SF Pro itself isn't
+  licensed for embedding as a webfont (this is the same technique
+  apple.com's own marketing pages use).
+- [x] **Liquid Glass applied correctly, per Apple's own HIG**: translucency/
+  blur is for **chrome** (the `NavBar`), not content. Financial statement
+  tables and other data panels stay fully opaque — blurring what's behind a
+  revenue table would hurt legibility, not help it. `NavBar` is now a
+  floating, sticky (`top-4`), frosted glass toolbar (`backdrop-blur-xl
+  backdrop-saturate-150 bg-surface/70 border-foreground/10 shadow-xl`) with
+  an Apple-style segmented-pill tab switcher (translucent track, solid
+  accent-colored active pill, both `rounded-full`).
+- [x] Bumped `--radius-lg/xl/2xl` tokens globally (softer corners everywhere
+  `rounded-lg`/`rounded-xl`/`rounded-2xl` is already used — no per-page
+  edits needed) and added a `.bg-surface` box-shadow for gentle depth on
+  every existing card, plus a very subtle ambient background gradient wash.
+
+**Important gotcha, read before touching `globals.css` again**: hand-authored
+`color-mix()` in plain CSS rules gets silently mangled by Tailwind v4's
+Lightning CSS pass in this project — verified by inspecting the actually
+*compiled* stylesheet (`document.styleSheets`, not just `getComputedStyle`):
+`color-mix(in srgb, var(--surface) 72%, transparent)` was collapsed down to
+bare `var(--surface)` (full opacity, wrong color) and `backdrop-filter` was
+dropped entirely. This only affects *authored* CSS in files like this one —
+**Tailwind's own opacity-modifier utilities** (`bg-accent/10`,
+`border-foreground/10`, `backdrop-blur-xl`, `backdrop-saturate-150` used
+directly in a `className`) go through a different, working code path and
+were verified correct via computed styles (real `blur(24px) saturate(1.5)`,
+real oklab alpha channels). **Rule going forward**: do glass/translucency/
+blur effects via Tailwind utility classes in JSX, never via hand-written
+`color-mix()`/`backdrop-filter` in `globals.css`. The one place raw
+`color-mix()` *does* work is inline `style={{...}}` props set from JS
+strings (e.g. the screener's heatmap cells) — those bypass the CSS build
+pipeline entirely, which is why they were unaffected by this bug.
+
+Verified: computed styles confirm real blur/opacity/shadow on the NavBar in
+both light and dark mode; font-family correctly cascades to headings; 32px
+of clear space between the floating nav and page content (no overlap);
+`/screener`, `/compare`, `/portfolio`, `/stocks`, and the dashboard's 9 tabs
+all re-tested with zero console errors after the change.
+
 ## 7. Non-Goals / Out of Scope (do NOT build)
 - ❌ **No CapitalIQ or JP Morgan research integration, scraping, or data redistribution.** These are licensed sources; using them in this app violates their terms. Public data only.
 - ❌ No user accounts, auth, or storing personal data (for the hackathon).

@@ -89,18 +89,18 @@ export default function SearchBox({
           onFocus={() => suggestions.length > 0 && setOpen(true)}
           placeholder={placeholder}
           autoFocus={autoFocus}
-          className="flex-1 rounded-lg border border-border bg-surface px-4 py-2 text-foreground focus:border-accent focus:outline-none"
+          className="flex-1 rounded-full border border-border/60 bg-background/60 px-4 py-1.5 text-foreground focus:border-accent focus:bg-surface focus:outline-none"
         />
         <button
           type="submit"
-          className="rounded-lg bg-accent px-5 py-2 font-medium text-accent-foreground hover:opacity-90"
+          className="rounded-full bg-accent px-5 py-1.5 font-medium text-accent-foreground hover:opacity-90"
         >
           Search
         </button>
       </form>
 
       {open && suggestions.length > 0 && (
-        <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-border bg-surface shadow-lg">
+        <ul className="bg-surface absolute z-10 mt-2 w-full overflow-hidden rounded-2xl border border-border shadow-lg">
           {suggestions.map((s, i) => (
             <li key={s.ticker}>
               <button
