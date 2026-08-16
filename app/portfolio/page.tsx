@@ -14,6 +14,7 @@ import {
   PERFORMANCE_PERIODS,
   computePortfolioPerformance,
   type PerformancePeriod,
+  type PerformanceMode,
   type SeriesPoint,
 } from "@/lib/portfolio-performance";
 
@@ -31,6 +32,7 @@ export default function PortfolioPage() {
   const [prices, setPrices] = useState<Record<string, PriceState>>({});
   const [series, setSeries] = useState<Record<string, SeriesState>>({});
   const [period, setPeriod] = useState<PerformancePeriod>("1M");
+  const [perfMode, setPerfMode] = useState<PerformanceMode>("strict");
   const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
@@ -181,9 +183,10 @@ export default function PortfolioPage() {
       seriesByTicker,
       priceByTicker,
       period,
-      new Date(now)
+      new Date(now),
+      perfMode
     );
-  }, [holdings, series, prices, period, now]);
+  }, [holdings, series, prices, period, now, perfMode]);
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
@@ -259,21 +262,44 @@ export default function PortfolioPage() {
       ) : (
         <div className="space-y-4">
           <div className="rounded-xl border border-border bg-surface p-4">
-            <div className="mb-3 flex flex-wrap items-center gap-1">
-              {PERFORMANCE_PERIODS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPeriod(p)}
-                  className={`rounded px-2.5 py-1 text-sm font-medium ${
-                    period === p
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted hover:bg-background hover:text-foreground"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-1">
+                {PERFORMANCE_PERIODS.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPeriod(p)}
+                    className={`rounded px-2.5 py-1 text-sm font-medium ${
+                      period === p
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted hover:bg-background hover:text-foreground"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1 text-xs">
+                {(
+                  [
+                    ["strict", "Owned since start"],
+                    ["normalized", "Include recent buys"],
+                  ] as const
+                ).map(([m, label]) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setPerfMode(m)}
+                    className={`rounded px-2 py-1 font-medium ${
+                      perfMode === m
+                        ? "bg-background text-foreground"
+                        : "text-muted hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
             {performance == null ? (
               <p className="text-sm text-muted">Loading performance…</p>
@@ -297,12 +323,22 @@ export default function PortfolioPage() {
                       : "n/a"}
                   </span>
                 </p>
+                {perfMode === "normalized" && (
+                  <p className="mt-1 text-xs text-muted">
+                    Normalized: positions bought during this period are baselined at their
+                    own cost, not excluded — a simple blended estimate, not a true
+                    time-weighted return.
+                  </p>
+                )}
                 {performance.excludedCount > 0 && (
                   <p className="mt-1 text-xs text-muted">
                     Based on {performance.includedCount} of{" "}
                     {performance.includedCount + performance.excludedCount} holdings —{" "}
-                    {performance.excludedCount} excluded (bought after this period started,
-                    or price history unavailable).
+                    {performance.excludedCount} excluded (
+                    {perfMode === "normalized"
+                      ? "price history unavailable"
+                      : "bought after this period started, or price history unavailable"}
+                    ).
                   </p>
                 )}
               </>

@@ -39,15 +39,29 @@ export function closestAtOrBefore(
 export type PortfolioHolding = {
   ticker: string;
   shares: number;
+  costBasis: number;
   dateBought: string;
 };
 
+export type PerformanceMode = "strict" | "normalized";
+
+// "strict": only holdings owned before the period started count, so the
+// return reflects actual price movement over the full period.
+//
+// "normalized": every holding counts. A position bought partway through the
+// period is baselined at its own cost (what you paid), not excluded — so a
+// stock bought yesterday contributes its since-purchase gain/loss instead of
+// being left out entirely. This is a simple blended estimate, NOT a true
+// time-weighted or money-weighted (XIRR) return — it doesn't account for
+// exactly when in the period each purchase landed, just whether it landed
+// before or during it.
 export function computePortfolioPerformance(
   holdings: PortfolioHolding[],
   seriesByTicker: Record<string, SeriesPoint[] | undefined>,
   currentPriceByTicker: Record<string, number | undefined>,
   period: PerformancePeriod,
-  now: Date
+  now: Date,
+  mode: PerformanceMode = "strict"
 ) {
   const cutoff = periodStartDate(period, now);
   const cutoffMs = cutoff.getTime();
@@ -60,13 +74,28 @@ export function computePortfolioPerformance(
   for (const h of holdings) {
     const boughtMs = new Date(h.dateBought).getTime();
     const currentPrice = currentPriceByTicker[h.ticker];
-    const series = seriesByTicker[h.ticker];
-
-    if (boughtMs > cutoffMs || !series || currentPrice == null) {
+    if (currentPrice == null) {
       excludedCount++;
       continue;
     }
-    const startPoint = closestAtOrBefore(series, cutoffMs);
+
+    const boughtBeforeCutoff = boughtMs <= cutoffMs;
+
+    if (!boughtBeforeCutoff && mode === "normalized") {
+      // New position: baseline at cost, not excluded.
+      valueAtStart += h.shares * h.costBasis;
+      valueNow += h.shares * currentPrice;
+      includedCount++;
+      continue;
+    }
+
+    if (!boughtBeforeCutoff) {
+      excludedCount++;
+      continue;
+    }
+
+    const series = seriesByTicker[h.ticker];
+    const startPoint = series && closestAtOrBefore(series, cutoffMs);
     if (!startPoint) {
       excludedCount++;
       continue;
