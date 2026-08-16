@@ -29,7 +29,21 @@ Known rough edges (fair game to fix):
 - Cash-rate numbers in `CASH_RATES` are **placeholders** — need real, verified, dated values.
 - No loading skeletons; minimal error states.
 
-## 4a. Architecture (post-Milestone-4)
+## 4a. A second stock-price feature exists — `/stocks`
+A teammate (Goutham) independently built `/stocks`: a candlestick chart with
+moving averages and a draggable range brush, using `lightweight-charts`
+(TradingView's library) + `yahoo-finance2` (a wrapper package, vs. this repo's
+own hand-rolled `lib/yahoo.ts` fetch calls) — see `app/api/stock/[symbol]/route.ts`,
+`app/components/StockChart.tsx`, `app/components/RangeBrush.tsx`. It merged
+into `main` cleanly (additive, no shared files touched) alongside the
+Milestone 4 dashboard work below. The two pages currently have **no cross-link**
+— `/stocks` isn't reachable from `/` or `/company/[ticker]` and vice versa.
+Worth adding a nav link between them, and worth deciding whether `/stocks`'
+approach (real candlesticks + MAs) should eventually replace the dashboard's
+simpler `LineChart` — don't duplicate effort on stock charting without
+checking both places first.
+
+## 4b. Architecture (post-Milestone-4)
 - `/` — landing page: search-by-ticker-or-name (autocomplete), the curated cash-rate table, theme toggle.
 - `/company/[ticker]` — the per-company dashboard: price + multiples cards, 1yr price chart, tabs (Overview / Financials / Filings), CSV/PDF export.
 - `lib/edgar.ts` — shared SEC EDGAR access: ticker/CIK resolution, name search, and `buildFinancialStatements()` (income statement, balance sheet, cash flow, shares outstanding).
