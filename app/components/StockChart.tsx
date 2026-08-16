@@ -9,6 +9,7 @@ import {
   type ISeriesApi,
   type UTCTimestamp,
 } from "lightweight-charts";
+import RangeBrush from "./RangeBrush";
 
 const RANGES = ["1D", "5D", "1M", "6M", "1Y", "5Y"] as const;
 type RangeKey = (typeof RANGES)[number];
@@ -59,6 +60,7 @@ export default function StockChart() {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const priceLineSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const maSeriesRef = useRef<Record<string, ISeriesApi<"Line">>>({});
 
   const [symbolInput, setSymbolInput] = useState("AAPL");
@@ -71,6 +73,7 @@ export default function StockChart() {
     new Set(["ma5", "ma30", "ma126"])
   );
   const [now, setNow] = useState<number | null>(null);
+  const [chartType, setChartType] = useState<"line" | "candlestick">("line");
 
   const fetchData = useCallback(async (sym: string, rng: RangeKey) => {
     setLoading(true);
@@ -134,6 +137,12 @@ export default function StockChart() {
       borderVisible: false,
       wickUpColor: "#22c55e",
       wickDownColor: "#ef4444",
+      visible: false,
+    });
+    priceLineSeriesRef.current = chart.addSeries(LineSeries, {
+      color: "#2563eb",
+      lineWidth: 2,
+      priceLineVisible: false,
     });
     maSeriesRef.current = Object.fromEntries(
       MA_CONFIG.map((ma) => [
@@ -165,7 +174,7 @@ export default function StockChart() {
 
   // Push data into series whenever it changes
   useEffect(() => {
-    if (!result || !candleSeriesRef.current) return;
+    if (!result || !candleSeriesRef.current || !priceLineSeriesRef.current) return;
     const candles = result.candles as Candle[];
     candleSeriesRef.current.setData(
       candles.map((c) => ({
@@ -176,6 +185,16 @@ export default function StockChart() {
         close: c.close,
       }))
     );
+    priceLineSeriesRef.current.setData(
+      candles.map((c) => ({
+        time: c.time as UTCTimestamp,
+        value: c.close,
+      }))
+    );
+    candleSeriesRef.current.applyOptions({
+      visible: chartType === "candlestick",
+    });
+    priceLineSeriesRef.current.applyOptions({ visible: chartType === "line" });
 
     const isDaily = result.interval === "1d";
     for (const ma of MA_CONFIG) {
@@ -186,7 +205,7 @@ export default function StockChart() {
     }
 
     chartRef.current?.timeScale().fitContent();
-  }, [result, visibleMAs]);
+  }, [result, visibleMAs, chartType]);
 
   const toggleMA = (key: string) => {
     setVisibleMAs((prev) => {
@@ -246,6 +265,23 @@ export default function StockChart() {
           ))}
         </div>
 
+        <div className="flex gap-1">
+          {(["line", "candlestick"] as const).map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setChartType(type)}
+              className={`rounded px-2.5 py-1.5 text-sm font-medium capitalize ${
+                chartType === type
+                  ? "bg-foreground text-background"
+                  : "bg-black/[.04] dark:bg-white/[.08] text-zinc-600 dark:text-zinc-400"
+              }`}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
+
         <button
           type="button"
           onClick={() => fetchData(symbol, range)}
@@ -295,6 +331,10 @@ export default function StockChart() {
         ref={containerRef}
         className="w-full rounded border border-black/10 dark:border-white/15"
       />
+
+      {result && result.candles.length > 1 && (
+        <RangeBrush candles={result.candles} chartRef={chartRef} />
+      )}
     </div>
   );
 }
