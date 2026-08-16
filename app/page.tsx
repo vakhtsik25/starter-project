@@ -2,10 +2,24 @@
 
 import { useEffect, useState } from "react";
 import MarketOverview, { type IndexData } from "@/components/MarketOverview";
+import NewsList, { type NewsItem } from "@/components/NewsList";
+import UpcomingEarnings, { type UpcomingEarning } from "@/components/UpcomingEarnings";
 import { buildMarketSnapshot } from "@/lib/market-snapshot";
 
 export default function Home() {
   const [indices, setIndices] = useState<IndexData[] | null>(null);
+  const [news, setNews] = useState<NewsItem[] | null>(null);
+  const [earnings, setEarnings] = useState<{
+    upcoming: UpcomingEarning[];
+    windowDays: number;
+  } | null>(null);
+  const [now, setNow] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Intentional: captures a render-safe "now" for relative news timestamps.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNow(Date.now());
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -16,6 +30,38 @@ export default function Home() {
         if (!cancelled) setIndices(json.indices);
       } catch {
         // Market overview is best-effort — the page is still useful without it.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/market/news");
+        const json = await res.json();
+        if (!cancelled && res.ok) setNews(json.news);
+      } catch {
+        // Best-effort.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/market/earnings-calendar");
+        const json = await res.json();
+        if (!cancelled && res.ok) setEarnings(json);
+      } catch {
+        // Best-effort.
       }
     })();
     return () => {
@@ -52,7 +98,7 @@ export default function Home() {
       </section>
 
       {snapshot && (
-        <section className="mb-10 rounded-xl border border-border bg-surface p-5">
+        <section className="mb-6 rounded-xl border border-border bg-surface p-5">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             Market Snapshot
           </h2>
@@ -63,6 +109,40 @@ export default function Home() {
           </p>
         </section>
       )}
+
+      <section className="mb-6 rounded-xl border border-border bg-surface p-5">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+          Market News
+        </h2>
+        {news === null || now === null ? (
+          <div className="animate-pulse space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-10 rounded bg-background" />
+            ))}
+          </div>
+        ) : (
+          <NewsList news={news} now={now} />
+        )}
+      </section>
+
+      <section className="mb-10 rounded-xl border border-border bg-surface p-5">
+        <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
+          Upcoming Earnings
+        </h2>
+        <p className="mb-3 text-xs text-muted">
+          Curated large-cap list, not the full market — see the Screener for
+          the full universe.
+        </p>
+        {earnings === null ? (
+          <div className="animate-pulse space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-8 rounded bg-background" />
+            ))}
+          </div>
+        ) : (
+          <UpcomingEarnings upcoming={earnings.upcoming} windowDays={earnings.windowDays} />
+        )}
+      </section>
 
       <footer className="mt-10 border-t border-border pt-4 text-center text-xs text-muted">
         For informational and educational purposes only. Not investment advice.
