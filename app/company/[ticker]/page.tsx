@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import ThemeToggle from "@/components/ThemeToggle";
-import SearchBox from "@/components/SearchBox";
 import BarChart from "@/components/BarChart";
 import StockChart from "@/app/components/StockChart";
 import StatementTable from "@/components/StatementTable";
@@ -64,6 +62,26 @@ function latestKnown(points: Point[]): number | null {
   return null;
 }
 
+// Dense label/value row for the Capital-IQ-style summary boxes.
+function Row({
+  label,
+  value,
+  valueClassName = "",
+}: {
+  label: string;
+  value: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="flex items-baseline justify-between py-1.5">
+      <dt className="text-muted">{label}</dt>
+      <dd className={`font-medium tabular-nums text-foreground ${valueClassName}`}>
+        {value}
+      </dd>
+    </div>
+  );
+}
+
 const TABS = ["Overview", "Financials", "Filings"] as const;
 type Tab = (typeof TABS)[number];
 
@@ -118,10 +136,17 @@ export default function CompanyDashboard() {
     if (!dossier) return null;
     const eps = latestKnown(dossier.incomeStatement.eps);
     const revenue = latestKnown(dossier.incomeStatement.revenue);
+    const netIncome = latestKnown(dossier.incomeStatement.netIncome);
+    const assets = latestKnown(dossier.balanceSheet.totalAssets);
     const equity = latestKnown(dossier.balanceSheet.stockholdersEquity);
     const shares = dossier.sharesOutstanding;
     const marketCap = price && shares ? price.currentPrice * shares : null;
     return {
+      eps,
+      revenue,
+      netIncome,
+      assets,
+      shares,
       marketCap,
       pe: price && eps !== null && eps > 0 ? price.currentPrice / eps : null,
       pb: marketCap && equity && equity > 0 ? marketCap / equity : null,
@@ -131,17 +156,6 @@ export default function CompanyDashboard() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <Link href="/" className="text-sm text-accent hover:underline">
-          ← Search another company
-        </Link>
-        <ThemeToggle />
-      </div>
-
-      <div className="mb-6">
-        <SearchBox placeholder="Search another company…" />
-      </div>
-
       {loading && (
         <div className="animate-pulse space-y-3">
           <div className="h-8 w-64 rounded bg-surface" />
@@ -170,53 +184,96 @@ export default function CompanyDashboard() {
             {dossier.sic && <p className="text-muted">{dossier.sic}</p>}
           </div>
 
-          {/* Price + multiples row */}
-          <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <p className="text-xs text-muted">Price</p>
-              {price ? (
-                <>
-                  <p className="text-xl font-semibold text-foreground">
-                    ${price.currentPrice.toFixed(2)}
-                  </p>
-                  <p
-                    className={`text-xs ${
-                      price.currentPrice >= price.previousClose
+          {/* Stock Quote — dense two-column summary, Capital IQ style */}
+          <section className="rounded-xl border border-border bg-surface p-5">
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+              Stock Quote
+            </h2>
+            <div className="grid gap-x-8 sm:grid-cols-2">
+              <dl className="divide-y divide-border">
+                <Row
+                  label="Last"
+                  value={price ? `$${price.currentPrice.toFixed(2)}` : "n/a"}
+                />
+                <Row
+                  label="Change on Day"
+                  value={
+                    price
+                      ? `${price.currentPrice >= price.previousClose ? "+" : ""}${(
+                          ((price.currentPrice - price.previousClose) /
+                            price.previousClose) *
+                          100
+                        ).toFixed(2)}%`
+                      : "n/a"
+                  }
+                  valueClassName={
+                    price
+                      ? price.currentPrice >= price.previousClose
                         ? "text-positive"
                         : "text-negative"
-                    }`}
-                  >
-                    {price.currentPrice >= price.previousClose ? "+" : ""}
-                    {(
-                      ((price.currentPrice - price.previousClose) /
-                        price.previousClose) *
-                      100
-                    ).toFixed(2)}
-                    % today
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm text-muted">n/a</p>
-              )}
+                      : ""
+                  }
+                />
+                <Row
+                  label="52 Wk High"
+                  value={price ? `$${price.fiftyTwoWeekHigh.toFixed(2)}` : "n/a"}
+                />
+                <Row
+                  label="52 Wk Low"
+                  value={price ? `$${price.fiftyTwoWeekLow.toFixed(2)}` : "n/a"}
+                />
+              </dl>
+              <dl className="divide-y divide-border">
+                <Row
+                  label="Market Cap"
+                  value={multiples?.marketCap ? fmtUSD(multiples.marketCap) : "n/a"}
+                />
+                <Row
+                  label="Shares Outstanding"
+                  value={multiples?.shares ? multiples.shares.toLocaleString() : "n/a"}
+                />
+                <Row
+                  label="Diluted EPS (FY)"
+                  value={multiples?.eps != null ? `$${multiples.eps.toFixed(2)}` : "n/a"}
+                />
+                <Row
+                  label="P/Diluted EPS (FY)"
+                  value={multiples?.pe ? `${multiples.pe.toFixed(1)}x` : "n/a"}
+                />
+              </dl>
             </div>
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <p className="text-xs text-muted">Market Cap</p>
-              <p className="text-xl font-semibold text-foreground">
-                {multiples?.marketCap ? fmtUSD(multiples.marketCap) : "n/a"}
-              </p>
-            </div>
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <p className="text-xs text-muted">P/E (FY)</p>
-              <p className="text-xl font-semibold text-foreground">
-                {multiples?.pe ? multiples.pe.toFixed(1) + "x" : "n/a"}
-              </p>
-            </div>
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <p className="text-xs text-muted">P/S · P/B</p>
-              <p className="text-xl font-semibold text-foreground">
-                {multiples?.ps ? multiples.ps.toFixed(1) + "x" : "n/a"} ·{" "}
-                {multiples?.pb ? multiples.pb.toFixed(1) + "x" : "n/a"}
-              </p>
+          </section>
+
+          {/* Financial Information — latest fiscal year, from SEC EDGAR */}
+          <section className="rounded-xl border border-border bg-surface p-5">
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+              Financial Information (Latest FY)
+            </h2>
+            <div className="grid gap-x-8 sm:grid-cols-2">
+              <dl className="divide-y divide-border">
+                <Row
+                  label="Total Revenue"
+                  value={multiples?.revenue != null ? fmtUSD(multiples.revenue) : "n/a"}
+                />
+                <Row
+                  label="Net Income"
+                  value={multiples?.netIncome != null ? fmtUSD(multiples.netIncome) : "n/a"}
+                />
+                <Row
+                  label="Total Assets"
+                  value={multiples?.assets != null ? fmtUSD(multiples.assets) : "n/a"}
+                />
+              </dl>
+              <dl className="divide-y divide-border">
+                <Row
+                  label="Price/Sales"
+                  value={multiples?.ps ? `${multiples.ps.toFixed(1)}x` : "n/a"}
+                />
+                <Row
+                  label="Price/Book"
+                  value={multiples?.pb ? `${multiples.pb.toFixed(1)}x` : "n/a"}
+                />
+              </dl>
             </div>
           </section>
 

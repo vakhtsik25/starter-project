@@ -44,14 +44,16 @@ Range presets cover `1D/5D/1M/6M` (other periods) and `1Y/2Y/3Y/4Y/5Y` (years),
 configured in `RANGE_CONFIG` in the API route. `/stocks` and `/company/[ticker]`
 still have **no cross-link** — worth adding a nav between them.
 
-## 4b. Architecture (post-Milestone-4)
-- `/` — landing page: search-by-ticker-or-name (autocomplete), the curated cash-rate table, theme toggle.
-- `/company/[ticker]` — the per-company dashboard: price + multiples cards, embedded `StockChart`, tabs (Overview / Financials / Filings), CSV/PDF export.
+## 4b. Architecture (post-Milestone-4, restructured Milestone 5)
+- `components/NavBar.tsx` — persistent top bar on EVERY page (in `app/layout.tsx`, not per-page): brand, general tabs (`Home`, `Stocks`), a global `SearchBox`, and `ThemeToggle`. This is the Capital-IQ-style shell — pages no longer render their own search/theme controls, NavBar owns those. `Home` stays active for both `/` and `/company/[ticker]` (tab logic keys off `usePathname()`).
+- `/` — minimal welcome/prompt page now that search lives in NavBar.
+- `/company/[ticker]` — the per-company dashboard: dense two-column "Stock Quote" + "Financial Information" info boxes (Capital-IQ-style `<dl>` rows via a local `Row` helper, not card tiles), embedded `StockChart`, tabs (Overview / Financials / Filings), CSV/PDF export.
 - `/stocks` — standalone candlestick/line stock explorer (Goutham's `StockChart`, free-form symbol entry).
+- `/cash` — the cash-rate comparison table, **intentionally hidden**: not linked from NavBar or anywhere else, reachable only by typing the URL directly. This was a product decision (user asked to hide it), not a bug — don't add a nav link back to it without checking first.
 - `lib/edgar.ts` — shared SEC EDGAR access: ticker/CIK resolution, name search, and `buildFinancialStatements()` (income statement, balance sheet, cash flow, shares outstanding).
-- `lib/yahoo.ts` — free live quote + 52wk range for the dashboard's summary cards/multiples (separate from `StockChart`'s own `yahoo-finance2`-based fetch, which drives the chart itself).
+- `lib/yahoo.ts` — free live quote + 52wk range for the dashboard's summary boxes/multiples (separate from `StockChart`'s own `yahoo-finance2`-based fetch, which drives the chart itself).
 - `lib/statements.ts` / `lib/export.ts` — shared statement-row shaping and CSV/PDF export (client-side, via `jspdf`).
-- `components/` — `SearchBox`, `BarChart`, `StatementTable`, `ThemeToggle`. `app/components/` — `StockChart`, `RangeBrush` (Goutham's, kept in their original location).
+- `components/` — `SearchBox`, `BarChart`, `StatementTable`, `ThemeToggle`, `NavBar`. `app/components/` — `StockChart`, `RangeBrush` (Goutham's, kept in their original location).
 - Theme: Tailwind v4 class-based dark mode (`@custom-variant dark` in `app/globals.css`), toggled via `ThemeToggle`, persisted to `localStorage["theme"]`, defaults to light (a pre-hydration script in `app/layout.tsx` avoids flash-of-wrong-theme; `<html>` has `suppressHydrationWarning` since the script intentionally changes its class before hydration).
 
 ## 5. Data Sources (all free / public — verified)
@@ -103,6 +105,13 @@ Annual figures for revenue/net income/EPS AND balance sheet/cash flow are keyed 
 - [x] Stock price history (1yr) + live quote + day change via Yahoo Finance; P/E, P/S, P/B multiples computed from EDGAR fundamentals + live price
 - [ ] (Not done) Trailing-twelve-month (TTM) multiples — current P/E/P/S/P/B use latest FY figures, labeled "(FY)"; a TTM version would need quarterly (10-Q) data merged in
 - [ ] (Not done) EV/EBITDA — skipped; total debt isn't consistently tagged across companies, would need a fragile fallback chain
+
+### Milestone 5 — Capital-IQ-style shell (shipped)
+- [x] Persistent top NavBar (brand, general tabs, global search, theme toggle) on every page via `app/layout.tsx` — replaces the per-page search/theme controls from Milestone 4
+- [x] Cash-rate comparison hidden: moved to unlinked `/cash` (product decision, not a bug — don't re-link without checking)
+- [x] Consolidated stock charting on Goutham's `StockChart` (candlestick + MAs), made embeddable, added 2Y/3Y/4Y ranges for full 1–5yr granularity (see Milestone 4a note above)
+- [x] Dashboard summary restyled from card-tile grid to dense two-column "Stock Quote" / "Financial Information" info boxes, closer to the Capital IQ company-profile layout the user referenced
+- [ ] (Not done) Cross-link between `/stocks` and `/company/[ticker]` — still separate, still worth reconsidering per Milestone 4a
 
 ## 7. Non-Goals / Out of Scope (do NOT build)
 - ❌ **No CapitalIQ or JP Morgan research integration, scraping, or data redistribution.** These are licensed sources; using them in this app violates their terms. Public data only.

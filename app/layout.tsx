@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import NavBar from "@/components/NavBar";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Company Dossier",
   description:
-    "Investor snapshots from the primary source — SEC EDGAR. Historical financials, filings, earnings calendar, and cash-rate comparisons for individual investors.",
+    "Investor snapshots from the primary source — SEC EDGAR. Historical financials, filings, and stock price history for individual investors.",
 };
 
 // Runs before hydration so there's no flash of the wrong theme. Light is the
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        <NavBar />
         {children}
       </body>
     </html>
