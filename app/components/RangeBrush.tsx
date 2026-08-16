@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { IChartApi } from "lightweight-charts";
 
 type Candle = { time: number; close: number };
@@ -15,6 +15,7 @@ export default function RangeBrush({
   chartRef: React.RefObject<IChartApi | null>;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const gradientId = useId();
   const [left, setLeft] = useState(0);
   const [right, setRight] = useState(1);
   const dragState = useRef<{
@@ -119,6 +120,17 @@ export default function RangeBrush({
           preserveAspectRatio="none"
           className="absolute inset-0 w-full h-full"
         >
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.18} />
+              <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <polygon
+            points={`0,40 ${sparklinePoints} 100,40`}
+            fill={`url(#${gradientId})`}
+            stroke="none"
+          />
           <polyline
             points={sparklinePoints}
             fill="none"

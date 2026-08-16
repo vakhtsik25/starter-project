@@ -5,13 +5,15 @@ import {
   createChart,
   CandlestickSeries,
   LineSeries,
+  AreaSeries,
+  LineType,
   type IChartApi,
   type ISeriesApi,
   type UTCTimestamp,
 } from "lightweight-charts";
 import RangeBrush from "./RangeBrush";
 import SearchBox from "@/components/SearchBox";
-import { readCssVar, watchThemeChange } from "@/lib/theme-colors";
+import { readCssVar, watchThemeChange, hexToRgba } from "@/lib/theme-colors";
 
 const OTHER_PERIODS = ["1D", "5D", "1M", "6M"] as const;
 const YEAR_PERIODS = ["1Y", "2Y", "3Y", "4Y", "5Y"] as const;
@@ -31,12 +33,18 @@ const MA_CONFIG = [
 // strings, not living CSS var() references — read the theme's current
 // values once here, and again whenever the theme toggle flips.
 function getChartColors() {
+  const accent = readCssVar("--accent");
   return {
     text: readCssVar("--muted"),
     grid: readCssVar("--border"),
     positive: readCssVar("--positive"),
     negative: readCssVar("--negative"),
-    accent: readCssVar("--accent"),
+    accent,
+    // Gradient wash under the price line — the dataviz skill's area-fill
+    // spec (~10% opacity, never a saturated block), stepping up slightly at
+    // the top since this is the chart's one hero series, fading to nothing.
+    areaTop: hexToRgba(accent, 0.16),
+    areaBottom: hexToRgba(accent, 0),
     ma: MA_CONFIG.map((ma) => readCssVar(ma.varName)),
   };
 }
@@ -91,7 +99,7 @@ export default function StockChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
-  const priceLineSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const priceLineSeriesRef = useRef<ISeriesApi<"Area"> | null>(null);
   const maSeriesRef = useRef<Record<string, ISeriesApi<"Line">>>({});
 
   const initialSymbol = (controlledSymbol || "AAPL").toUpperCase();
@@ -181,9 +189,12 @@ export default function StockChart({
       wickDownColor: colors.negative,
       visible: false,
     });
-    priceLineSeriesRef.current = chart.addSeries(LineSeries, {
-      color: colors.accent,
+    priceLineSeriesRef.current = chart.addSeries(AreaSeries, {
+      lineColor: colors.accent,
+      topColor: colors.areaTop,
+      bottomColor: colors.areaBottom,
       lineWidth: 2,
+      lineType: LineType.Curved,
       priceLineVisible: false,
     });
     maSeriesRef.current = Object.fromEntries(
@@ -192,6 +203,7 @@ export default function StockChart({
         chart.addSeries(LineSeries, {
           color: colors.ma[i],
           lineWidth: 2,
+          lineType: LineType.Curved,
           priceLineVisible: false,
           lastValueVisible: false,
         }),
@@ -224,7 +236,11 @@ export default function StockChart({
         wickUpColor: next.positive,
         wickDownColor: next.negative,
       });
-      priceLineSeriesRef.current?.applyOptions({ color: next.accent });
+      priceLineSeriesRef.current?.applyOptions({
+        lineColor: next.accent,
+        topColor: next.areaTop,
+        bottomColor: next.areaBottom,
+      });
       MA_CONFIG.forEach((ma, i) => {
         maSeriesRef.current[ma.key]?.applyOptions({ color: next.ma[i] });
       });
