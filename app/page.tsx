@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type Point = { year: number; value: number };
+type Point = { year: number; value: number | null };
 type Filing = { form: string; date: string; title: string; url: string };
 type Dossier = {
   ticker: string;
@@ -15,13 +15,37 @@ type Dossier = {
   error?: string;
 };
 
-// --- Curated cash-rate table (Person B: keep these updated by hand) ---
+// --- Curated cash-rate table ---
+// Rates change monthly (tied to Fed policy + fund flows). Re-verify and bump
+// CASH_RATES_AS_OF whenever you update this list — sources are in
+// docs/03-decision-log.md. Whoever owns this file: keep it dated, don't guess.
+const CASH_RATES_AS_OF = "August 2026";
 const CASH_RATES = [
-  { broker: "Interactive Brokers (IBKR)", rate: "3.83%", note: "On USD > $10k, tiered" },
-  { broker: "Fidelity (SPAXX)", rate: "3.98%", note: "Government money market" },
-  { broker: "Robinhood Gold", rate: "4.00%", note: "Requires Gold membership" },
-  { broker: "Schwab (default sweep)", rate: "0.05%", note: "Very low — move to MMF" },
-  { broker: "Wealthfront Cash", rate: "4.00%", note: "Partner-bank swept" },
+  {
+    broker: "Interactive Brokers (IBKR)",
+    rate: "3.13%",
+    note: "USD balances > $10k; requires ~$100k account value for top tier (IBKR Lite is lower, ~2.14%)",
+  },
+  {
+    broker: "Fidelity (SPAXX default sweep)",
+    rate: "3.30%",
+    note: "7-day yield, net of ~0.42% expense ratio",
+  },
+  {
+    broker: "Schwab (default Bank Sweep)",
+    rate: "0.01%–0.45%",
+    note: "Very low by design — move idle cash to a money market fund manually",
+  },
+  {
+    broker: "Robinhood Gold",
+    rate: "~3.35%",
+    note: "Requires Gold membership; check app for today's rate, it moves often",
+  },
+  {
+    broker: "Wealthfront Cash Account",
+    rate: "3.30%",
+    note: "Base APY; temporary boosts available via referral/direct deposit",
+  },
 ];
 
 function fmtUSD(n: number) {
@@ -35,20 +59,27 @@ function fmtUSD(n: number) {
 function BarChart({ data, format }: { data: Point[]; format: (n: number) => string }) {
   if (!data.length)
     return <p className="text-sm text-gray-500">No data available.</p>;
-  const max = Math.max(...data.map((d) => Math.abs(d.value))) || 1;
+  const known = data.filter((d) => d.value !== null) as { year: number; value: number }[];
+  const max = Math.max(...known.map((d) => Math.abs(d.value))) || 1;
   return (
     <div className="space-y-2">
       {data.map((d) => (
         <div key={d.year} className="flex items-center gap-3 text-sm">
           <span className="w-12 shrink-0 text-gray-500">{d.year}</span>
           <div className="h-5 flex-1 rounded bg-gray-100">
-            <div
-              className={`h-5 rounded ${d.value < 0 ? "bg-red-400" : "bg-blue-500"}`}
-              style={{ width: `${(Math.abs(d.value) / max) * 100}%` }}
-            />
+            {d.value !== null && (
+              <div
+                className={`h-5 rounded ${d.value < 0 ? "bg-red-400" : "bg-blue-500"}`}
+                style={{ width: `${(Math.abs(d.value) / max) * 100}%` }}
+              />
+            )}
           </div>
-          <span className="w-20 shrink-0 text-right tabular-nums">
-            {format(d.value)}
+          <span
+            className={`w-20 shrink-0 text-right tabular-nums ${
+              d.value === null ? "text-gray-400" : ""
+            }`}
+          >
+            {d.value !== null ? format(d.value) : "n/a"}
           </span>
         </div>
       ))}
@@ -145,7 +176,15 @@ export default function Home() {
         </div>
       )}
 
-      {data && (
+      {loading && (
+        <div className="mb-6 animate-pulse space-y-3">
+          <div className="h-6 w-48 rounded bg-gray-200" />
+          <div className="h-24 rounded-xl bg-gray-100" />
+          <div className="h-24 rounded-xl bg-gray-100" />
+        </div>
+      )}
+
+      {data && !loading && (
         <div className="space-y-6">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">
@@ -230,7 +269,8 @@ export default function Home() {
             </tbody>
           </table>
           <p className="mt-2 text-xs text-gray-400">
-            Rates are illustrative — verify before relying on them.
+            Rates as of {CASH_RATES_AS_OF} — brokers change these monthly; verify
+            on the provider&apos;s site before relying on them.
           </p>
         </Section>
       </div>

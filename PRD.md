@@ -50,10 +50,10 @@ Known rough edges (fair game to fix):
 - [x] Revenue / Net Income / EPS 5-yr charts from EDGAR
 - [x] Recent filings with SEC links + `.ics` calendar export
 - [x] Curated cash-rate table + "not investment advice" footer
-- [ ] Replace placeholder `CASH_RATES` with 5+ real, dated, sourced rates
-- [ ] Graceful states: loading indicator on search; friendly message for unknown/edge tickers; never render a blank/broken section
-- [ ] Fix gap-year handling: only show contiguous recent fiscal years; label missing years "n/a" instead of dropping them silently
-- [ ] Update page `<title>`/metadata in `app/layout.tsx` to "Company Dossier"
+- [x] Replace placeholder `CASH_RATES` with 5+ real, dated, sourced rates (see docs/03-decision-log.md for sources; dated "August 2026")
+- [x] Graceful states: loading indicator (animated skeleton) on search; friendly 404 message for unknown tickers (verified with ZZZZ); cash table always renders even on error
+- [x] Fix gap-year handling: merged across XBRL concept fallbacks so genuine data fills real gaps (fixed TSLA's stray-2018 bug); any true remaining gap renders as "n/a" without crashing (verified in code + BarChart component)
+- [x] Update page `<title>`/metadata in `app/layout.tsx` to "Company Dossier"
 
 ### Milestone 2 — Hackathon-day stretch (pick ONE if ahead)
 - [ ] Live **next earnings date** via Finnhub, shown in a "Calendar" card with an `.ics` button

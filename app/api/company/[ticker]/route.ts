@@ -31,25 +31,53 @@ async function getCompany(ticker: string) {
   return tickerMap[ticker.toUpperCase()] || null;
 }
 
-// Pull an annual (fiscal-year) series for the first concept name that exists.
-function annualSeries(facts: any, concepts: string[], unit: string) {
+// Pull an annual (fiscal-year) series, merged across concept name fallbacks.
+// Companies re-tag the same line item under different XBRL concepts as the
+// taxonomy evolves (e.g. Tesla used "Revenues" pre-2023, then switched) — if
+// we only look at the first concept with ANY data, we get a sparse series
+// with a hole in the middle. Merging across all fallbacks fills that in.
+function annualSeries(
+  facts: any,
+  concepts: string[],
+  unit: string
+): { year: number; value: number | null }[] {
+  const byYear: Record<number, number> = {};
   for (const concept of concepts) {
     const node = facts?.facts?.["us-gaap"]?.[concept]?.units?.[unit];
     if (!Array.isArray(node)) continue;
-    const byYear: Record<number, number> = {};
+
+    // Resolve THIS concept's own value per year first. EDGAR's array isn't
+    // strictly chronological — restated comparatives from later filings
+    // appear alongside the original figure — so within one concept the LAST
+    // entry for a given fy in array order is the most authoritative (matches
+    // how later 10-Ks report/restate prior-year comparatives).
+    const localByYear: Record<number, number> = {};
     for (const e of node) {
       if (e.form === "10-K" && e.fp === "FY" && typeof e.fy === "number") {
-        byYear[e.fy] = e.val;
+        localByYear[e.fy] = e.val;
       }
     }
-    const years = Object.keys(byYear)
-      .map(Number)
-      .sort((a, b) => a - b);
-    if (years.length) {
-      return years.slice(-5).map((y) => ({ year: y, value: byYear[y] }));
+
+    // Only use this concept to fill years the higher-priority concept(s)
+    // didn't cover at all — never let a fallback concept override a year
+    // the preferred concept already answered.
+    for (const [y, v] of Object.entries(localByYear)) {
+      const year = Number(y);
+      if (!(year in byYear)) byYear[year] = v;
     }
   }
-  return [];
+  const years = Object.keys(byYear).map(Number);
+  if (!years.length) return [];
+
+  // Build a CONTIGUOUS trailing 5-year window ending at the latest year we
+  // have. Any year inside that window without data becomes null ("n/a")
+  // instead of silently vanishing and making the chart look shorter/wrong.
+  const latest = Math.max(...years);
+  const window: { year: number; value: number | null }[] = [];
+  for (let y = latest - 4; y <= latest; y++) {
+    window.push({ year: y, value: y in byYear ? byYear[y] : null });
+  }
+  return window;
 }
 
 export async function GET(
