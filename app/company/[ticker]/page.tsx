@@ -6,6 +6,7 @@ import Link from "next/link";
 import BarChart from "@/components/BarChart";
 import StockChart from "@/app/components/StockChart";
 import StatementTable from "@/components/StatementTable";
+import NewsList, { type NewsItem } from "@/components/NewsList";
 import { buildStatements } from "@/lib/statements";
 import { downloadStatementsCsv, downloadStatementsPdf } from "@/lib/export";
 import { downloadIcs } from "@/lib/ics";
@@ -82,7 +83,7 @@ function Row({
   );
 }
 
-const TABS = ["Overview", "Financials", "Filings"] as const;
+const TABS = ["Overview", "Financials", "Filings", "News"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function CompanyDashboard() {
@@ -91,9 +92,17 @@ export default function CompanyDashboard() {
 
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [price, setPrice] = useState<PriceData | null>(null);
+  const [news, setNews] = useState<NewsItem[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Overview");
+  const [now, setNow] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Intentional: captures a render-safe "now" for relative news timestamps.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNow(Date.now());
+  }, []);
 
   useEffect(() => {
     if (!ticker) return;
@@ -102,6 +111,7 @@ export default function CompanyDashboard() {
     setError(null);
     setDossier(null);
     setPrice(null);
+    setNews(null);
 
     (async () => {
       const dossierRes = await fetch(`/api/company/${ticker}`);
@@ -115,11 +125,19 @@ export default function CompanyDashboard() {
       setDossier(dossierJson);
       setLoading(false);
 
-      // Price is best-effort — a dashboard is still useful without it.
+      // Price and news are best-effort — a dashboard is still useful without them.
       try {
         const priceRes = await fetch(`/api/company/${ticker}/price`);
         const priceJson = await priceRes.json();
         if (!cancelled && priceRes.ok) setPrice(priceJson);
+      } catch {
+        // ignore
+      }
+
+      try {
+        const newsRes = await fetch(`/api/company/${ticker}/news`);
+        const newsJson = await newsRes.json();
+        if (!cancelled && newsRes.ok) setNews(newsJson.news);
       } catch {
         // ignore
       }
@@ -385,6 +403,16 @@ export default function CompanyDashboard() {
                     </li>
                   ))}
                 </ul>
+              )}
+            </section>
+          )}
+
+          {tab === "News" && (
+            <section className="rounded-xl border border-border bg-surface p-5">
+              {news === null || now === null ? (
+                <p className="text-sm text-muted">Loading news…</p>
+              ) : (
+                <NewsList news={news} now={now} />
               )}
             </section>
           )}
