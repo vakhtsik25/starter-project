@@ -41,7 +41,7 @@ export default function NavBar() {
       <header className="mx-auto max-w-6xl rounded-2xl border border-foreground/10 bg-surface/70 shadow-xl backdrop-blur-xl backdrop-saturate-150">
         <div className="flex flex-wrap items-center gap-3 px-4 py-2.5">
           <Link href="/" className="shrink-0 text-lg font-semibold tracking-tight text-foreground">
-            Company Dossier
+            FinLens
           </Link>
 
           <nav className="flex shrink-0 gap-0.5 rounded-full bg-background/60 p-1">

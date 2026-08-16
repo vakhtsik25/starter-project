@@ -48,7 +48,7 @@ Click one period column header (e.g. "5Y") to show live sorting:
 > "Every column is sortable, every stock links back to the same deep-dive you just saw."
 
 ## Part 4 — The close (15 seconds)
-> "Everything you just saw — filings, insider trades, real-time prices — is free and public. We deliberately built this on SEC EDGAR and public market data instead of scraping a licensed terminal, because we wanted something that's actually legal to ship, not a demo that falls apart under scrutiny. That's Company Dossier."
+> "Everything you just saw — filings, insider trades, real-time prices — is free and public. We deliberately built this on SEC EDGAR and public market data instead of scraping a licensed terminal, because we wanted something that's actually legal to ship, not a demo that falls apart under scrutiny. That's FinLens."
 
 Stop talking. Let it land. Don't keep clicking.
 

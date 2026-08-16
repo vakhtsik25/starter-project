@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Company Dossier",
+  title: "FinLens",
   description:
     "Investor snapshots from the primary source — SEC EDGAR. Historical financials, filings, and stock price history for individual investors.",
 };

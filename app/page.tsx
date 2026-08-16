@@ -28,7 +28,7 @@ export default function Home() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
       <header className="mb-8 text-center">
-        <h1 className="text-3xl font-bold text-foreground">Company Dossier</h1>
+        <h1 className="text-3xl font-bold text-foreground">FinLens</h1>
         <p className="mx-auto mt-2 max-w-md text-muted">
           Investor snapshots from the primary source — SEC EDGAR. Search a
           ticker or company name above to see historical financials, filings,
