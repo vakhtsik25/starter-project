@@ -1,22 +1,46 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: `dark:` utilities activate when `.dark` is on an
+   ancestor (we toggle it on <html>). Light is the default — no reliance on
+   prefers-color-scheme, per product decision. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --surface: #ffffff;
+  --foreground: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --accent: #2563eb;
+  --accent-foreground: #ffffff;
+  --positive: #16a34a;
+  --negative: #dc2626;
+}
+
+.dark {
+  --background: #0b1220;
+  --surface: #111827;
+  --foreground: #e5e7eb;
+  --muted: #94a3b8;
+  --border: #1f2937;
+  --accent: #3b82f6;
+  --accent-foreground: #ffffff;
+  --positive: #22c55e;
+  --negative: #f87171;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {

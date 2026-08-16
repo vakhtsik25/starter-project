@@ -29,6 +29,15 @@ Known rough edges (fair game to fix):
 - Cash-rate numbers in `CASH_RATES` are **placeholders** — need real, verified, dated values.
 - No loading skeletons; minimal error states.
 
+## 4a. Architecture (post-Milestone-4)
+- `/` — landing page: search-by-ticker-or-name (autocomplete), the curated cash-rate table, theme toggle.
+- `/company/[ticker]` — the per-company dashboard: price + multiples cards, 1yr price chart, tabs (Overview / Financials / Filings), CSV/PDF export.
+- `lib/edgar.ts` — shared SEC EDGAR access: ticker/CIK resolution, name search, and `buildFinancialStatements()` (income statement, balance sheet, cash flow, shares outstanding).
+- `lib/yahoo.ts` — free live price + 1yr history via Yahoo's public (unofficial, no-key) chart endpoint.
+- `lib/statements.ts` / `lib/export.ts` — shared statement-row shaping and CSV/PDF export (client-side, via `jspdf`).
+- `components/` — `SearchBox`, `BarChart`, `LineChart`, `StatementTable`, `ThemeToggle`.
+- Theme: Tailwind v4 class-based dark mode (`@custom-variant dark` in `app/globals.css`), toggled via `ThemeToggle`, persisted to `localStorage["theme"]`, defaults to light (a pre-hydration script in `app/layout.tsx` avoids flash-of-wrong-theme).
+
 ## 5. Data Sources (all free / public — verified)
 **SEC EDGAR** (no key). Always send a descriptive `User-Agent` header (e.g. `starter-project (email)`); cache responses (~1h) and stay well under ~10 req/s.
 - Ticker → CIK map: `https://www.sec.gov/files/company_tickers.json` (pad `cik_str` to 10 digits).
@@ -40,6 +49,10 @@ Known rough edges (fair game to fix):
   - Net income: `NetIncomeLoss` (unit `USD`).
   - EPS: `EarningsPerShareDiluted` → `EarningsPerShareBasic` (unit `USD/shares`).
 - Filing URL: `https://www.sec.gov/Archives/edgar/data/{cikNoLeadingZeros}/{accessionNoDashes}/{primaryDocument}`.
+
+Annual figures for revenue/net income/EPS AND balance sheet/cash flow are keyed by the reporting period's `end` date, not the `fy` field — a single 10-K reports 2-3 years of comparatives and EDGAR stamps ALL of them with the filing's own `fy`, so keying by `fy` silently collides distinct periods. `lib/edgar.ts`'s `annualSeries()` resolves this (see its comments) — do not revert to fy-keying if refactoring.
+
+**Yahoo Finance chart API** (free, unofficial, no key — `lib/yahoo.ts`). `https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range=...&interval=...`. Two calls are combined: `range=5d&interval=1d` for an accurate current price + true previous-close (Yahoo's `chartPreviousClose` is relative to whatever range you request, so a `range=1y` call gives a stale "previous close" — don't use it for day-change), and `range=1y&interval=1wk` for the chart series. If Yahoo ever blocks this, the next-best free fallback needs research (Stooq is bot-gated and returned a JS challenge page during testing).
 
 **Finnhub** (free tier, only for stretch items). Requires `FINNHUB_API_KEY` as a Vercel env var — **never commit the key.** Endpoints: earnings calendar, earnings surprises.
 
@@ -65,6 +78,15 @@ Known rough edges (fair game to fix):
 - [ ] Watchlist (save tickers, localStorage first)
 - [ ] Compare two companies side by side
 - [ ] Simple "own view" tracker: user records their expectation before earnings, app shows if it played out
+
+### Milestone 4 — Dashboard expansion (shipped)
+- [x] Dark/light theme toggle, light default, persisted, no flash-of-wrong-theme
+- [x] Search by company name (not just ticker) with autocomplete
+- [x] Download full financial statements (Income Statement, Balance Sheet, Cash Flow) as CSV and as PDF
+- [x] Per-company dashboard at `/company/[ticker]` (CapitalIQ/AlphaSense-inspired): price/multiples cards, tabs, statement tables
+- [x] Stock price history (1yr) + live quote + day change via Yahoo Finance; P/E, P/S, P/B multiples computed from EDGAR fundamentals + live price
+- [ ] (Not done) Trailing-twelve-month (TTM) multiples — current P/E/P/S/P/B use latest FY figures, labeled "(FY)"; a TTM version would need quarterly (10-Q) data merged in
+- [ ] (Not done) EV/EBITDA — skipped; total debt isn't consistently tagged across companies, would need a fragile fallback chain
 
 ## 7. Non-Goals / Out of Scope (do NOT build)
 - ❌ **No CapitalIQ or JP Morgan research integration, scraping, or data redistribution.** These are licensed sources; using them in this app violates their terms. Public data only.
