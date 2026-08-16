@@ -29,28 +29,30 @@ Known rough edges (fair game to fix):
 - Cash-rate numbers in `CASH_RATES` are **placeholders** — need real, verified, dated values.
 - No loading skeletons; minimal error states.
 
-## 4a. A second stock-price feature exists — `/stocks`
+## 4a. Stock charting is consolidated on Goutham's `StockChart`
 A teammate (Goutham) independently built `/stocks`: a candlestick chart with
 moving averages and a draggable range brush, using `lightweight-charts`
-(TradingView's library) + `yahoo-finance2` (a wrapper package, vs. this repo's
-own hand-rolled `lib/yahoo.ts` fetch calls) — see `app/api/stock/[symbol]/route.ts`,
-`app/components/StockChart.tsx`, `app/components/RangeBrush.tsx`. It merged
-into `main` cleanly (additive, no shared files touched) alongside the
-Milestone 4 dashboard work below. The two pages currently have **no cross-link**
-— `/stocks` isn't reachable from `/` or `/company/[ticker]` and vice versa.
-Worth adding a nav link between them, and worth deciding whether `/stocks`'
-approach (real candlesticks + MAs) should eventually replace the dashboard's
-simpler `LineChart` — don't duplicate effort on stock charting without
-checking both places first.
+(TradingView's library) + `yahoo-finance2` (a wrapper package) — see
+`app/api/stock/[symbol]/route.ts`, `app/components/StockChart.tsx`,
+`app/components/RangeBrush.tsx`. This is now the **only** price-charting
+component in the app: `StockChart` was made embeddable (`symbol` /
+`defaultRange` props hide the manual symbol input when controlled) and is
+used both standalone at `/stocks` and embedded in `/company/[ticker]`'s
+dashboard. The dashboard's original hand-rolled `LineChart` was deleted —
+don't recreate it; extend `StockChart` instead if the chart needs to change.
+Range presets cover `1D/5D/1M/6M` (other periods) and `1Y/2Y/3Y/4Y/5Y` (years),
+configured in `RANGE_CONFIG` in the API route. `/stocks` and `/company/[ticker]`
+still have **no cross-link** — worth adding a nav between them.
 
 ## 4b. Architecture (post-Milestone-4)
 - `/` — landing page: search-by-ticker-or-name (autocomplete), the curated cash-rate table, theme toggle.
-- `/company/[ticker]` — the per-company dashboard: price + multiples cards, 1yr price chart, tabs (Overview / Financials / Filings), CSV/PDF export.
+- `/company/[ticker]` — the per-company dashboard: price + multiples cards, embedded `StockChart`, tabs (Overview / Financials / Filings), CSV/PDF export.
+- `/stocks` — standalone candlestick/line stock explorer (Goutham's `StockChart`, free-form symbol entry).
 - `lib/edgar.ts` — shared SEC EDGAR access: ticker/CIK resolution, name search, and `buildFinancialStatements()` (income statement, balance sheet, cash flow, shares outstanding).
-- `lib/yahoo.ts` — free live price + 1yr history via Yahoo's public (unofficial, no-key) chart endpoint.
+- `lib/yahoo.ts` — free live quote + 52wk range for the dashboard's summary cards/multiples (separate from `StockChart`'s own `yahoo-finance2`-based fetch, which drives the chart itself).
 - `lib/statements.ts` / `lib/export.ts` — shared statement-row shaping and CSV/PDF export (client-side, via `jspdf`).
-- `components/` — `SearchBox`, `BarChart`, `LineChart`, `StatementTable`, `ThemeToggle`.
-- Theme: Tailwind v4 class-based dark mode (`@custom-variant dark` in `app/globals.css`), toggled via `ThemeToggle`, persisted to `localStorage["theme"]`, defaults to light (a pre-hydration script in `app/layout.tsx` avoids flash-of-wrong-theme).
+- `components/` — `SearchBox`, `BarChart`, `StatementTable`, `ThemeToggle`. `app/components/` — `StockChart`, `RangeBrush` (Goutham's, kept in their original location).
+- Theme: Tailwind v4 class-based dark mode (`@custom-variant dark` in `app/globals.css`), toggled via `ThemeToggle`, persisted to `localStorage["theme"]`, defaults to light (a pre-hydration script in `app/layout.tsx` avoids flash-of-wrong-theme; `<html>` has `suppressHydrationWarning` since the script intentionally changes its class before hydration).
 
 ## 5. Data Sources (all free / public — verified)
 **SEC EDGAR** (no key). Always send a descriptive `User-Agent` header (e.g. `starter-project (email)`); cache responses (~1h) and stay well under ~10 req/s.

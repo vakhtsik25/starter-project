@@ -6,7 +6,7 @@ import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import SearchBox from "@/components/SearchBox";
 import BarChart from "@/components/BarChart";
-import LineChart from "@/components/LineChart";
+import StockChart from "@/app/components/StockChart";
 import StatementTable from "@/components/StatementTable";
 import { buildStatements } from "@/lib/statements";
 import { downloadStatementsCsv, downloadStatementsPdf } from "@/lib/export";
@@ -220,16 +220,9 @@ export default function CompanyDashboard() {
             </div>
           </section>
 
-          {/* Price chart */}
+          {/* Price chart — candlestick/line with moving averages, 1D through 5Y */}
           <section className="rounded-xl border border-border bg-surface p-5">
-            <h2 className="mb-3 text-sm font-semibold text-foreground">
-              Price — 1 year
-            </h2>
-            {price ? (
-              <LineChart series={price.series} />
-            ) : (
-              <p className="text-sm text-muted">Price data unavailable.</p>
-            )}
+            <StockChart symbol={dossier.ticker} defaultRange="1Y" />
           </section>
 
           {/* Tabs */}

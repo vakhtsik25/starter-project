@@ -9,6 +9,9 @@ export const RANGE_CONFIG = {
   "1M": { interval: "1d", days: 30 },
   "6M": { interval: "1d", days: 182 },
   "1Y": { interval: "1d", days: 365 },
+  "2Y": { interval: "1d", days: 365 * 2 },
+  "3Y": { interval: "1wk", days: 365 * 3 },
+  "4Y": { interval: "1wk", days: 365 * 4 },
   "5Y": { interval: "1wk", days: 365 * 5 },
 } as const;
 

@@ -11,7 +11,9 @@ import {
 } from "lightweight-charts";
 import RangeBrush from "./RangeBrush";
 
-const RANGES = ["1D", "5D", "1M", "6M", "1Y", "5Y"] as const;
+const OTHER_PERIODS = ["1D", "5D", "1M", "6M"] as const;
+const YEAR_PERIODS = ["1Y", "2Y", "3Y", "4Y", "5Y"] as const;
+const RANGES = [...OTHER_PERIODS, ...YEAR_PERIODS] as const;
 type RangeKey = (typeof RANGES)[number];
 
 const MA_CONFIG = [
@@ -56,16 +58,36 @@ function computeSMA(candles: Candle[], period: number) {
   return points;
 }
 
-export default function StockChart() {
+export default function StockChart({
+  symbol: controlledSymbol,
+  defaultRange = "1M",
+}: {
+  // When provided, the manual symbol input is hidden and the chart tracks
+  // this ticker instead — used to embed the chart in a page that already
+  // has its own company search (e.g. the /company/[ticker] dashboard).
+  symbol?: string;
+  defaultRange?: RangeKey;
+} = {}) {
+  const isEmbedded = !!controlledSymbol;
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const priceLineSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const maSeriesRef = useRef<Record<string, ISeriesApi<"Line">>>({});
 
-  const [symbolInput, setSymbolInput] = useState("AAPL");
-  const [symbol, setSymbol] = useState("AAPL");
-  const [range, setRange] = useState<RangeKey>("1M");
+  const initialSymbol = (controlledSymbol || "AAPL").toUpperCase();
+  const [symbolInput, setSymbolInput] = useState(initialSymbol);
+  const [symbol, setSymbol] = useState(initialSymbol);
+  const [range, setRange] = useState<RangeKey>(defaultRange);
+
+  // Keep in sync if the embedding page navigates to a different company.
+  useEffect(() => {
+    if (controlledSymbol) {
+      const next = controlledSymbol.toUpperCase();
+      setSymbolInput(next);
+      setSymbol(next);
+    }
+  }, [controlledSymbol]);
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -229,40 +251,63 @@ export default function StockChart() {
   return (
     <div className="w-full max-w-4xl flex flex-col gap-4">
       <form
-        className="flex flex-wrap items-center gap-2"
+        className="flex flex-wrap items-center gap-3"
         onSubmit={(e) => {
           e.preventDefault();
           setSymbol(symbolInput.trim().toUpperCase());
         }}
       >
-        <input
-          value={symbolInput}
-          onChange={(e) => setSymbolInput(e.target.value)}
-          placeholder="Symbol (e.g. AAPL)"
-          className="rounded border border-black/10 dark:border-white/15 bg-transparent px-3 py-1.5 text-sm font-mono uppercase w-40"
-        />
-        <button
-          type="submit"
-          className="rounded bg-foreground text-background px-3 py-1.5 text-sm font-medium"
-        >
-          Load
-        </button>
-
-        <div className="flex gap-1 ml-2">
-          {RANGES.map((r) => (
+        {!isEmbedded && (
+          <>
+            <input
+              value={symbolInput}
+              onChange={(e) => setSymbolInput(e.target.value)}
+              placeholder="Symbol (e.g. AAPL)"
+              className="rounded border border-black/10 dark:border-white/15 bg-transparent px-3 py-1.5 text-sm font-mono uppercase w-40"
+            />
             <button
-              key={r}
-              type="button"
-              onClick={() => setRange(r)}
-              className={`rounded px-2.5 py-1.5 text-sm font-medium ${
-                range === r
-                  ? "bg-foreground text-background"
-                  : "bg-black/[.04] dark:bg-white/[.08] text-zinc-600 dark:text-zinc-400"
-              }`}
+              type="submit"
+              className="rounded bg-foreground text-background px-3 py-1.5 text-sm font-medium"
             >
-              {r}
+              Load
             </button>
-          ))}
+          </>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1" role="group" aria-label="Other periods">
+            {OTHER_PERIODS.map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRange(r)}
+                className={`rounded px-2.5 py-1.5 text-sm font-medium ${
+                  range === r
+                    ? "bg-foreground text-background"
+                    : "bg-black/[.04] dark:bg-white/[.08] text-zinc-600 dark:text-zinc-400"
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+          <span className="h-5 w-px bg-black/10 dark:bg-white/15" aria-hidden="true" />
+          <div className="flex gap-1" role="group" aria-label="Years">
+            {YEAR_PERIODS.map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRange(r)}
+                className={`rounded px-2.5 py-1.5 text-sm font-medium ${
+                  range === r
+                    ? "bg-foreground text-background"
+                    : "bg-black/[.04] dark:bg-white/[.08] text-zinc-600 dark:text-zinc-400"
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex gap-1">
@@ -311,7 +356,7 @@ export default function StockChart() {
         ))}
         {!isDailyInterval && result && (
           <span className="text-zinc-400 text-xs">
-            (moving averages need daily candles — switch to 1M/6M/1Y)
+            (moving averages need daily candles — switch to 1M/6M/1Y/2Y)
           </span>
         )}
         {lastUpdatedLabel && (
