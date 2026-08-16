@@ -10,8 +10,15 @@ import {
   type Holding,
 } from "@/lib/portfolio";
 import { formatUSD } from "@/lib/multiples";
+import {
+  PERFORMANCE_PERIODS,
+  computePortfolioPerformance,
+  type PerformancePeriod,
+  type SeriesPoint,
+} from "@/lib/portfolio-performance";
 
 type PriceState = { currentPrice: number } | "loading" | "error";
+type SeriesState = SeriesPoint[] | "loading" | "error";
 
 function todayIso() {
   const d = new Date();
@@ -22,6 +29,15 @@ export default function PortfolioPage() {
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [prices, setPrices] = useState<Record<string, PriceState>>({});
+  const [series, setSeries] = useState<Record<string, SeriesState>>({});
+  const [period, setPeriod] = useState<PerformancePeriod>("1M");
+  const [now, setNow] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Intentional one-time capture for period-performance math.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNow(Date.now());
+  }, []);
 
   const [ticker, setTicker] = useState("");
   const [shares, setShares] = useState("");
@@ -69,6 +85,36 @@ export default function PortfolioPage() {
       }
     });
   }, [holdings, prices]);
+
+  // Fetch a 1Y daily price series per distinct ticker, for period-performance math
+  useEffect(() => {
+    const tickers = [...new Set(holdings.map((h) => h.ticker))];
+    const missing = tickers.filter((t) => !(t in series));
+    if (missing.length === 0) return;
+
+    // Intentional: marks newly-seen tickers as loading before fetching.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSeries((prev) => {
+      const next = { ...prev };
+      for (const t of missing) next[t] = "loading";
+      return next;
+    });
+
+    missing.forEach(async (t) => {
+      try {
+        // 2Y (not 1Y) so the longest supported period (1Y) always has a
+        // data point at or before its cutoff, even with trading-day trimming.
+        const res = await fetch(`/api/stock/${t}?range=2Y`);
+        const json = await res.json();
+        setSeries((prev) => ({
+          ...prev,
+          [t]: res.ok ? (json.candles as SeriesPoint[]) : "error",
+        }));
+      } catch {
+        setSeries((prev) => ({ ...prev, [t]: "error" }));
+      }
+    });
+  }, [holdings, series]);
 
   const addHolding = (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,6 +165,25 @@ export default function PortfolioPage() {
     const complete = withValue.length === rows.length && rows.length > 0;
     return { costTotal, currentValue, gainAbs: currentValue - costTotal, complete };
   }, [rows]);
+
+  const performance = useMemo(() => {
+    if (now == null || holdings.length === 0) return null;
+    const seriesByTicker: Record<string, SeriesPoint[] | undefined> = {};
+    for (const [t, s] of Object.entries(series)) {
+      if (Array.isArray(s)) seriesByTicker[t] = s;
+    }
+    const priceByTicker: Record<string, number | undefined> = {};
+    for (const [t, p] of Object.entries(prices)) {
+      if (typeof p === "object") priceByTicker[t] = p.currentPrice;
+    }
+    return computePortfolioPerformance(
+      holdings,
+      seriesByTicker,
+      priceByTicker,
+      period,
+      new Date(now)
+    );
+  }, [holdings, series, prices, period, now]);
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
@@ -193,6 +258,57 @@ export default function PortfolioPage() {
         </p>
       ) : (
         <div className="space-y-4">
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <div className="mb-3 flex flex-wrap items-center gap-1">
+              {PERFORMANCE_PERIODS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPeriod(p)}
+                  className={`rounded px-2.5 py-1 text-sm font-medium ${
+                    period === p
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted hover:bg-background hover:text-foreground"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+            {performance == null ? (
+              <p className="text-sm text-muted">Loading performance…</p>
+            ) : performance.includedCount === 0 ? (
+              <p className="text-sm text-muted">
+                No holdings owned before the start of this period yet.
+              </p>
+            ) : (
+              <>
+                <p className="text-sm">
+                  <span className="text-muted">Portfolio change ({period}): </span>
+                  <span
+                    className={`font-medium tabular-nums ${
+                      (performance.changePct ?? 0) >= 0 ? "text-positive" : "text-negative"
+                    }`}
+                  >
+                    {performance.changePct != null
+                      ? `${performance.changePct >= 0 ? "+" : ""}${performance.changePct.toFixed(1)}% (${
+                          performance.changeAbs >= 0 ? "+" : ""
+                        }${formatUSD(performance.changeAbs)})`
+                      : "n/a"}
+                  </span>
+                </p>
+                {performance.excludedCount > 0 && (
+                  <p className="mt-1 text-xs text-muted">
+                    Based on {performance.includedCount} of{" "}
+                    {performance.includedCount + performance.excludedCount} holdings —{" "}
+                    {performance.excludedCount} excluded (bought after this period started,
+                    or price history unavailable).
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
           <div className="overflow-x-auto rounded-xl border border-border bg-surface">
             <table className="w-full text-sm">
               <thead>
