@@ -61,7 +61,7 @@ export default function Home() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/market/earnings-calendar");
+        const res = await fetch("/api/market/earnings-calendar?days=21");
         const json = await res.json();
         if (!cancelled && res.ok) setEarnings(json);
       } catch {

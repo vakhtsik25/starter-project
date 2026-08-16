@@ -26,12 +26,18 @@ type Stock = {
   fiftyTwoWeekHigh: number | null;
   fiftyTwoWeekLow: number | null;
   analysts: AnalystSnapshot | null;
+  nextEarningsDate: string | null;
   error?: string;
 };
 
 function recommendationLabel(key: string | null) {
   if (!key) return "n/a";
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function fmtEarningsDate(iso: string | null) {
+  if (!iso) return "n/a";
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function fmtPct(v: number | undefined) {
@@ -179,6 +185,9 @@ function StockRow({ stock, showIndustry }: { stock: Stock; showIndustry: boolean
             }→${stock.analysts.recentAction.toGrade} (${stock.analysts.recentAction.date})`
           : "n/a"}
       </td>
+      <td className="px-2 py-2 text-foreground">
+        {fmtEarningsDate(stock.nextEarningsDate)}
+      </td>
     </tr>
   );
 }
@@ -233,7 +242,11 @@ export default function ScreenerPage() {
           <h1 className="text-2xl font-bold text-foreground">Stock Screener</h1>
           <p className="text-sm text-muted">
             A curated set of large-cap US stocks. Click a period column to sort
-            by it.
+            by it. See the{" "}
+            <Link href="/earnings-calendar" className="text-accent hover:underline">
+              full earnings calendar
+            </Link>{" "}
+            for a browsable month/week/day view.
           </p>
         </div>
         <label className="flex items-center gap-2 text-sm text-foreground">
@@ -283,6 +296,7 @@ export default function ScreenerPage() {
                 <th className="px-2 py-2">Analyst</th>
                 <th className="px-2 py-2 text-right">% to Target</th>
                 <th className="px-2 py-2">Recent Action</th>
+                <th className="px-2 py-2">Next Earnings</th>
               </tr>
             </thead>
             <tbody>
@@ -291,7 +305,7 @@ export default function ScreenerPage() {
                     <Fragment key={industry}>
                       <tr>
                         <td
-                          colSpan={7 + PERIODS.length}
+                          colSpan={8 + PERIODS.length}
                           className="bg-background px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted"
                         >
                           {industry}
