@@ -113,6 +113,14 @@ Annual figures for revenue/net income/EPS AND balance sheet/cash flow are keyed 
 - [x] Dashboard summary restyled from card-tile grid to dense two-column "Stock Quote" / "Financial Information" info boxes, closer to the Capital IQ company-profile layout the user referenced
 - [ ] (Not done) Cross-link between `/stocks` and `/company/[ticker]` — still separate, still worth reconsidering per Milestone 4a
 
+### Milestone 6 — Home page market overview (shipped)
+- [x] `app/api/market/overview/route.ts` — fetches S&P 500 (`^GSPC`), Nasdaq Composite (`^IXIC`), Dow Jones (`^DJI`), Russell 2000 (`^RUT`), and VIX (`^VIX`) in parallel via `lib/yahoo.ts`'s existing `getPriceData()` (index tickers work through the same free Yahoo endpoint, no new data source). VIX was our own addition beyond what the user asked for — a volatility/"fear gauge" reading fits the app's original anti-herd positioning.
+- [x] `components/MarketOverview.tsx` — table with price, colored day change, and a small dependency-free SVG sparkline per index (1yr weekly series, reused from the same fetch).
+- [x] `lib/market-snapshot.ts` — `buildMarketSnapshot()` builds a short paragraph **entirely derived from the fetched numbers** (S&P/Nasdaq direction, small-cap-vs-large-cap relative move, VIX level context) — no fabricated opinions or analysis. Clearly labeled on-page as auto-generated. If extending this, keep that rule.
+- [x] `app/page.tsx` fetches once and passes the same data to both the table and the snapshot text, so they can't disagree.
+
+Verified: real live data confirmed (Dow Jones figure exactly matched the reference S&P Capital IQ screenshot the user shared); sparklines render; snapshot correctly identified small-cap outperformance and a low VIX reading in a real test run.
+
 ## 7. Non-Goals / Out of Scope (do NOT build)
 - ❌ **No CapitalIQ or JP Morgan research integration, scraping, or data redistribution.** These are licensed sources; using them in this app violates their terms. Public data only.
 - ❌ No user accounts, auth, or storing personal data (for the hackathon).
