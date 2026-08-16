@@ -35,6 +35,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      // The theme-init script below adds "dark" before hydration runs, which
+      // always differs from what the server rendered — that's expected, not
+      // a real mismatch, so we tell React not to warn about this one element.
+      suppressHydrationWarning
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
