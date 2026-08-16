@@ -4,14 +4,35 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PERIODS, type Period } from "@/lib/stock-performance";
 
+type AnalystSnapshot = {
+  recommendationKey: string | null;
+  targetMean: number | null;
+  numberOfAnalysts: number | null;
+  recentAction: {
+    firm: string;
+    action: string;
+    toGrade: string;
+    fromGrade: string | null;
+    date: string;
+  } | null;
+};
+
 type Stock = {
   ticker: string;
   name: string;
   industry: string;
   price: number | null;
   performance: Partial<Record<Period, number>>;
+  fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekLow: number | null;
+  analysts: AnalystSnapshot | null;
   error?: string;
 };
+
+function recommendationLabel(key: string | null) {
+  if (!key) return "n/a";
+  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 function fmtPct(v: number | undefined) {
   if (v == null) return "n/a";
@@ -138,6 +159,26 @@ function StockRow({ stock, showIndustry }: { stock: Stock; showIndustry: boolean
           {fmtPct(stock.performance[p])}
         </td>
       ))}
+      <td className="px-2 py-2 text-right tabular-nums text-muted">
+        {stock.fiftyTwoWeekLow != null && stock.fiftyTwoWeekHigh != null
+          ? `$${stock.fiftyTwoWeekLow.toFixed(0)}–$${stock.fiftyTwoWeekHigh.toFixed(0)}`
+          : "n/a"}
+      </td>
+      <td className="px-2 py-2 text-foreground">
+        {recommendationLabel(stock.analysts?.recommendationKey ?? null)}
+      </td>
+      <td className="px-2 py-2 text-right tabular-nums text-foreground">
+        {stock.analysts?.targetMean != null && stock.price
+          ? fmtPct(((stock.analysts.targetMean - stock.price) / stock.price) * 100)
+          : "n/a"}
+      </td>
+      <td className="px-2 py-2 text-muted">
+        {stock.analysts?.recentAction
+          ? `${stock.analysts.recentAction.firm}: ${
+              stock.analysts.recentAction.fromGrade ?? "?"
+            }→${stock.analysts.recentAction.toGrade} (${stock.analysts.recentAction.date})`
+          : "n/a"}
+      </td>
     </tr>
   );
 }
@@ -238,6 +279,10 @@ export default function ScreenerPage() {
                     </button>
                   </th>
                 ))}
+                <th className="px-2 py-2 text-right">52W Range</th>
+                <th className="px-2 py-2">Analyst</th>
+                <th className="px-2 py-2 text-right">% to Target</th>
+                <th className="px-2 py-2">Recent Action</th>
               </tr>
             </thead>
             <tbody>
@@ -246,7 +291,7 @@ export default function ScreenerPage() {
                     <Fragment key={industry}>
                       <tr>
                         <td
-                          colSpan={3 + PERIODS.length}
+                          colSpan={7 + PERIODS.length}
                           className="bg-background px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted"
                         >
                           {industry}

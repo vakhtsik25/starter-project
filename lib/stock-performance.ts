@@ -40,9 +40,12 @@ function closestAtOrBefore(series: SeriesPoint[], targetSec: number): SeriesPoin
 
 export type Performance = Partial<Record<Period, number>>;
 
-export async function getStockPerformance(
-  ticker: string
-): Promise<{ price: number; performance: Performance } | null> {
+export async function getStockPerformance(ticker: string): Promise<{
+  price: number;
+  performance: Performance;
+  fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekLow: number | null;
+} | null> {
   const [daily, weekly] = await Promise.all([
     fetchChart(ticker, "1y", "1d"),
     fetchChart(ticker, "5y", "1wk"),
@@ -67,5 +70,13 @@ export async function getStockPerformance(
     }
   }
 
-  return { price: latest.close, performance };
+  // Already present on the same chart response we fetched for performance —
+  // no extra request needed.
+  const meta = daily.meta;
+  return {
+    price: latest.close,
+    performance,
+    fiftyTwoWeekHigh: meta?.fiftyTwoWeekHigh ?? null,
+    fiftyTwoWeekLow: meta?.fiftyTwoWeekLow ?? null,
+  };
 }
