@@ -8,6 +8,7 @@ import StockChart from "@/app/components/StockChart";
 import StatementTable from "@/components/StatementTable";
 import NewsList, { type NewsItem } from "@/components/NewsList";
 import AnalystRatings, { type AnalystData } from "@/components/AnalystRatings";
+import EarningsCalendar, { type EarningsData } from "@/components/EarningsCalendar";
 import { buildStatements } from "@/lib/statements";
 import { downloadStatementsCsv, downloadStatementsPdf } from "@/lib/export";
 import { downloadIcs } from "@/lib/ics";
@@ -84,7 +85,14 @@ function Row({
   );
 }
 
-const TABS = ["Overview", "Financials", "Filings", "News", "Analysts"] as const;
+const TABS = [
+  "Overview",
+  "Financials",
+  "Filings",
+  "News",
+  "Analysts",
+  "Earnings",
+] as const;
 type Tab = (typeof TABS)[number];
 
 export default function CompanyDashboard() {
@@ -95,6 +103,7 @@ export default function CompanyDashboard() {
   const [price, setPrice] = useState<PriceData | null>(null);
   const [news, setNews] = useState<NewsItem[] | null>(null);
   const [analysts, setAnalysts] = useState<AnalystData | null>(null);
+  const [earnings, setEarnings] = useState<EarningsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Overview");
@@ -115,6 +124,7 @@ export default function CompanyDashboard() {
     setPrice(null);
     setNews(null);
     setAnalysts(null);
+    setEarnings(null);
 
     (async () => {
       const dossierRes = await fetch(`/api/company/${ticker}`);
@@ -149,6 +159,14 @@ export default function CompanyDashboard() {
         const analystsRes = await fetch(`/api/company/${ticker}/analysts`);
         const analystsJson = await analystsRes.json();
         if (!cancelled && analystsRes.ok) setAnalysts(analystsJson);
+      } catch {
+        // ignore
+      }
+
+      try {
+        const earningsRes = await fetch(`/api/company/${ticker}/earnings`);
+        const earningsJson = await earningsRes.json();
+        if (!cancelled && earningsRes.ok) setEarnings(earningsJson);
       } catch {
         // ignore
       }
@@ -434,6 +452,20 @@ export default function CompanyDashboard() {
                 <p className="text-sm text-muted">Loading analyst ratings…</p>
               ) : (
                 <AnalystRatings data={analysts} />
+              )}
+            </section>
+          )}
+
+          {tab === "Earnings" && (
+            <section className="rounded-xl border border-border bg-surface p-5">
+              {earnings === null ? (
+                <p className="text-sm text-muted">Loading earnings calendar…</p>
+              ) : (
+                <EarningsCalendar
+                  data={earnings}
+                  ticker={dossier.ticker}
+                  name={dossier.name}
+                />
               )}
             </section>
           )}
