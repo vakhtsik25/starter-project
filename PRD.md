@@ -47,7 +47,8 @@ still have **no cross-link** — worth adding a nav between them.
 ## 4b. Architecture (post-Milestone-4, restructured Milestone 5)
 - `components/NavBar.tsx` — persistent top bar on EVERY page (in `app/layout.tsx`, not per-page): brand, general tabs (`Home`, `Stocks`, `Screener`, `Compare`), a global `SearchBox`, and `ThemeToggle`. This is the Capital-IQ-style shell — pages no longer render their own search/theme controls, NavBar owns those. `Home` stays active for both `/` and `/company/[ticker]` (tab logic keys off `usePathname()`).
 - `/` — welcome prompt + Market Overview (major indices) + auto-generated snapshot paragraph.
-- `/company/[ticker]` — the per-company dashboard: dense two-column "Stock Quote" + "Financial Information" info boxes (Capital-IQ-style `<dl>` rows via a local `Row` helper, not card tiles), embedded `StockChart`, tabs (**Overview / Analysis / Financials / Insiders / Filings**), CSV/PDF export. Analysis and Insiders added in Milestone 8.
+- `/company/[ticker]` — the per-company dashboard: dense two-column "Stock Quote" + "Financial Information" info boxes (Capital-IQ-style `<dl>` rows via a local `Row` helper, not card tiles), embedded `StockChart`, tabs (**Overview / Analysis / Financials / Valuation / Analysts / Earnings / News / Insiders / Filings** — 9 tabs, built by two people in parallel and merged, see Milestone 8), CSV/PDF export.
+- `/portfolio` — localStorage-only holdings tracker (ticker/shares/cost basis/date), cost vs. current value vs. gain, no account/sync. Goutham's, fully independent of everything above.
 - `/stocks` — standalone candlestick/line stock explorer (Goutham's `StockChart`, free-form symbol entry).
 - `/screener` — industry heatmap (Milestone 8) above a curated-universe table sortable by any of 7 performance periods (click a column header), with an industry-grouping toggle. See Milestone 7.
 - `/compare` — peer comparison, up to 4 tickers, `?tickers=` in the URL. See Milestone 8.
@@ -147,6 +148,37 @@ User asked for "exciting, more analysis" features and named the target persona: 
 - [x] Added "Compare" as a fourth NavBar tab (alongside Home/Stocks/Screener).
 
 Verified end-to-end on a fresh tab: all four new surfaces render with real data and zero console errors, dark mode works throughout, and the pre-existing Financials/Filings tabs and CSV/PDF export were re-tested after the `company-metrics.ts` refactor to confirm no regression.
+
+### Milestone 8b — Merged with a second round of parallel teammate work
+While Milestone 8 was in progress, Goutham independently shipped an overlapping
+batch to `main` via PR #3: `News`, `Analysts`, `Earnings`, `Valuation` tabs on
+the dashboard (using `yahoo-finance2`, same as `StockChart`) plus a fully
+independent `/portfolio` (localStorage holdings tracker). Two genuine
+collisions, both reconciled:
+- **Multiples calculation duplicated**: Goutham had also extracted the
+  dashboard's inline multiples calc, into `lib/multiples.ts`'s
+  `computeMultiples({dossier, price})` (object-arg) — functionally a subset
+  of this session's `lib/company-metrics.ts` `computeMetrics(dossier, price)`
+  (positional-arg, plus growth/margin fields `computeMultiples` didn't have).
+  Resolution: `lib/company-metrics.ts` is now the ONLY multiples/growth
+  implementation; `components/PeerValuation.tsx` was updated to import from
+  it instead. `lib/multiples.ts` was trimmed to just `formatUSD` (still used
+  by `/portfolio`) — don't add multiples-calculation logic back into it.
+- **Peer comparison duplicated**: Goutham's `PeerValuation` (a "Valuation" tab
+  *within* one company's dashboard — add peers, compare against the company
+  you're already viewing) vs. this session's standalone `/compare` (its own
+  NavBar tab, shareable via `?tickers=`, more metrics: growth rates, margins).
+  Both kept — they're genuinely different workflows, not true duplicates, and
+  both are now proven to render identical numbers for the same ticker (since
+  both call `computeMetrics`). Don't build a third peer-comparison surface
+  without checking these two first.
+- The dashboard's 9-tab `TABS` array order (`Overview, Analysis, Financials,
+  Valuation, Analysts, Earnings, News, Insiders, Filings`) and the combined
+  data-fetching `useEffect` (price + insiders + news + analysts + earnings,
+  all best-effort/independent try-catch blocks) were hand-merged — git's
+  auto-merge handled everything except these interleaved edits to the same
+  few functions. Verified rebuilt clean and re-tested every tab plus
+  `/portfolio` afterward.
 
 ## 7. Non-Goals / Out of Scope (do NOT build)
 - ❌ **No CapitalIQ or JP Morgan research integration, scraping, or data redistribution.** These are licensed sources; using them in this app violates their terms. Public data only.
