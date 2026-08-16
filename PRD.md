@@ -45,15 +45,17 @@ configured in `RANGE_CONFIG` in the API route. `/stocks` and `/company/[ticker]`
 still have **no cross-link** — worth adding a nav between them.
 
 ## 4b. Architecture (post-Milestone-4, restructured Milestone 5)
-- `components/NavBar.tsx` — persistent top bar on EVERY page (in `app/layout.tsx`, not per-page): brand, general tabs (`Home`, `Stocks`), a global `SearchBox`, and `ThemeToggle`. This is the Capital-IQ-style shell — pages no longer render their own search/theme controls, NavBar owns those. `Home` stays active for both `/` and `/company/[ticker]` (tab logic keys off `usePathname()`).
-- `/` — minimal welcome/prompt page now that search lives in NavBar.
+- `components/NavBar.tsx` — persistent top bar on EVERY page (in `app/layout.tsx`, not per-page): brand, general tabs (`Home`, `Stocks`, `Screener`), a global `SearchBox`, and `ThemeToggle`. This is the Capital-IQ-style shell — pages no longer render their own search/theme controls, NavBar owns those. `Home` stays active for both `/` and `/company/[ticker]` (tab logic keys off `usePathname()`).
+- `/` — welcome prompt + Market Overview (major indices) + auto-generated snapshot paragraph.
 - `/company/[ticker]` — the per-company dashboard: dense two-column "Stock Quote" + "Financial Information" info boxes (Capital-IQ-style `<dl>` rows via a local `Row` helper, not card tiles), embedded `StockChart`, tabs (Overview / Financials / Filings), CSV/PDF export.
 - `/stocks` — standalone candlestick/line stock explorer (Goutham's `StockChart`, free-form symbol entry).
+- `/screener` — curated-universe table sortable by any of 7 performance periods (click a column header), with an industry-grouping toggle. See Milestone 7.
 - `/cash` — the cash-rate comparison table, **intentionally hidden**: not linked from NavBar or anywhere else, reachable only by typing the URL directly. This was a product decision (user asked to hide it), not a bug — don't add a nav link back to it without checking first.
 - `lib/edgar.ts` — shared SEC EDGAR access: ticker/CIK resolution, name search, and `buildFinancialStatements()` (income statement, balance sheet, cash flow, shares outstanding).
-- `lib/yahoo.ts` — free live quote + 52wk range for the dashboard's summary boxes/multiples (separate from `StockChart`'s own `yahoo-finance2`-based fetch, which drives the chart itself).
+- `lib/yahoo.ts` — `fetchChart()` (exported, shared low-level Yahoo fetch) + `getPriceData()` (live quote + 52wk range, used by the dashboard's summary boxes/multiples and the Home page's Market Overview). Separate from `StockChart`'s own `yahoo-finance2`-based fetch, which drives that chart specifically.
+- `lib/stock-universe.ts` / `lib/stock-performance.ts` / `lib/market-snapshot.ts` — screener universe + multi-period return calculation, and the Home page's data-derived snapshot text.
 - `lib/statements.ts` / `lib/export.ts` — shared statement-row shaping and CSV/PDF export (client-side, via `jspdf`).
-- `components/` — `SearchBox`, `BarChart`, `StatementTable`, `ThemeToggle`, `NavBar`. `app/components/` — `StockChart`, `RangeBrush` (Goutham's, kept in their original location).
+- `components/` — `SearchBox`, `BarChart`, `StatementTable`, `ThemeToggle`, `NavBar`, `MarketOverview`. `app/components/` — `StockChart`, `RangeBrush` (Goutham's, kept in their original location).
 - Theme: Tailwind v4 class-based dark mode (`@custom-variant dark` in `app/globals.css`), toggled via `ThemeToggle`, persisted to `localStorage["theme"]`, defaults to light (a pre-hydration script in `app/layout.tsx` avoids flash-of-wrong-theme; `<html>` has `suppressHydrationWarning` since the script intentionally changes its class before hydration).
 
 ## 5. Data Sources (all free / public — verified)
@@ -120,6 +122,15 @@ Annual figures for revenue/net income/EPS AND balance sheet/cash flow are keyed 
 - [x] `app/page.tsx` fetches once and passes the same data to both the table and the snapshot text, so they can't disagree.
 
 Verified: real live data confirmed (Dow Jones figure exactly matched the reference S&P Capital IQ screenshot the user shared); sparklines render; snapshot correctly identified small-cap outperformance and a low VIX reading in a real test run.
+
+### Milestone 7 — Stock screener: industry grouping + multi-period performance (shipped)
+- [x] `lib/stock-universe.ts` — curated list of ~35 well-known large-cap US stocks tagged with industry (Technology, Financials, Healthcare, Consumer Discretionary, Consumer Staples, Energy, Industrials, Communication Services). **Not the full market** — screening thousands of tickers would mean thousands of Yahoo requests per page load. Extend by adding entries to this one file.
+- [x] `lib/stock-performance.ts` — `getStockPerformance(ticker)` fetches `1y/1d` (covers 1D–12M) + `5y/1wk` (covers 5Y) via `lib/yahoo.ts`'s now-exported `fetchChart()`, and computes % return for each of `PERIODS = ["1D","1W","1M","3M","6M","12M","5Y"]` using a closest-point-at-or-before lookup (handles weekends/holidays gracefully; degrades gracefully — not incorrectly — if a stock has less history than the lookback window).
+- [x] `app/api/stocks/screener/route.ts` — fetches performance for the whole universe in parallel (~70 Yahoo requests for 35 tickers × 2 ranges each; verified ~2.8s total, zero errors, no rate-limiting observed).
+- [x] `app/screener/page.tsx` — table with Ticker (links to `/company/[ticker]`) / Name / Price / all 7 period columns. **Click any period column header to sort by it** (descending, best performers first). A **"Group by industry" checkbox** (default ON) groups rows under industry sub-headers, each group independently sorted by the active period; unchecked shows a flat cross-industry ranking with an Industry column.
+- [x] Added "Screener" as a third NavBar tab.
+
+Verified: all 35 stocks return real data with zero errors (e.g. NVDA +981.67% over 5Y — matches its well-known AI-driven rally); sorting by column and the group/flat toggle both re-order correctly; ticker links navigate to the existing company dashboard; dark mode and console are clean on a fresh tab.
 
 ## 7. Non-Goals / Out of Scope (do NOT build)
 - ❌ **No CapitalIQ or JP Morgan research integration, scraping, or data redistribution.** These are licensed sources; using them in this app violates their terms. Public data only.

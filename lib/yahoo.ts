@@ -14,7 +14,7 @@ export type PriceData = {
   series: PricePoint[];
 };
 
-async function fetchChart(ticker: string, range: string, interval: string) {
+export async function fetchChart(ticker: string, range: string, interval: string) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
     ticker
   )}?range=${range}&interval=${interval}`;
