@@ -9,9 +9,11 @@ import StatementTable from "@/components/StatementTable";
 import NewsList, { type NewsItem } from "@/components/NewsList";
 import AnalystRatings, { type AnalystData } from "@/components/AnalystRatings";
 import EarningsCalendar, { type EarningsData } from "@/components/EarningsCalendar";
+import PeerValuation from "@/components/PeerValuation";
 import { buildStatements } from "@/lib/statements";
 import { downloadStatementsCsv, downloadStatementsPdf } from "@/lib/export";
 import { downloadIcs } from "@/lib/ics";
+import { computeMultiples } from "@/lib/multiples";
 
 type Point = { year: number; value: number | null };
 type Filing = { form: string; date: string; title: string; url: string };
@@ -58,13 +60,6 @@ function fmtUSD(n: number) {
   return `$${n.toLocaleString()}`;
 }
 
-function latestKnown(points: Point[]): number | null {
-  for (let i = points.length - 1; i >= 0; i--) {
-    if (points[i].value !== null) return points[i].value;
-  }
-  return null;
-}
-
 // Dense label/value row for the Capital-IQ-style summary boxes.
 function Row({
   label,
@@ -92,6 +87,7 @@ const TABS = [
   "News",
   "Analysts",
   "Earnings",
+  "Valuation",
 ] as const;
 type Tab = (typeof TABS)[number];
 
@@ -179,27 +175,10 @@ export default function CompanyDashboard() {
 
   const statements = useMemo(() => (dossier ? buildStatements(dossier) : []), [dossier]);
 
-  const multiples = useMemo(() => {
-    if (!dossier) return null;
-    const eps = latestKnown(dossier.incomeStatement.eps);
-    const revenue = latestKnown(dossier.incomeStatement.revenue);
-    const netIncome = latestKnown(dossier.incomeStatement.netIncome);
-    const assets = latestKnown(dossier.balanceSheet.totalAssets);
-    const equity = latestKnown(dossier.balanceSheet.stockholdersEquity);
-    const shares = dossier.sharesOutstanding;
-    const marketCap = price && shares ? price.currentPrice * shares : null;
-    return {
-      eps,
-      revenue,
-      netIncome,
-      assets,
-      shares,
-      marketCap,
-      pe: price && eps !== null && eps > 0 ? price.currentPrice / eps : null,
-      pb: marketCap && equity && equity > 0 ? marketCap / equity : null,
-      ps: marketCap && revenue && revenue > 0 ? marketCap / revenue : null,
-    };
-  }, [dossier, price]);
+  const multiples = useMemo(
+    () => (dossier ? computeMultiples({ dossier, price }) : null),
+    [dossier, price]
+  );
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
@@ -465,6 +444,20 @@ export default function CompanyDashboard() {
                   data={earnings}
                   ticker={dossier.ticker}
                   name={dossier.name}
+                />
+              )}
+            </section>
+          )}
+
+          {tab === "Valuation" && (
+            <section className="rounded-xl border border-border bg-surface p-5">
+              {multiples === null ? (
+                <p className="text-sm text-muted">Loading valuation…</p>
+              ) : (
+                <PeerValuation
+                  ticker={dossier.ticker}
+                  name={dossier.name}
+                  multiples={multiples}
                 />
               )}
             </section>
