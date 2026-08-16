@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import SearchBox from "@/components/SearchBox";
 import {
   loadHoldings,
   saveHoldings,
@@ -26,6 +27,7 @@ export default function PortfolioPage() {
   const [shares, setShares] = useState("");
   const [costBasis, setCostBasis] = useState("");
   const [dateBought, setDateBought] = useState("");
+  const [searchKey, setSearchKey] = useState(0);
 
   // Load once on mount
   useEffect(() => {
@@ -88,6 +90,7 @@ export default function PortfolioPage() {
     setShares("");
     setCostBasis("");
     setDateBought("");
+    setSearchKey((k) => k + 1);
   };
 
   const removeHolding = (id: string) => {
@@ -130,12 +133,13 @@ export default function PortfolioPage() {
         className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-surface p-4"
       >
         <label className="flex flex-col text-xs text-muted">
-          Ticker
-          <input
-            value={ticker}
-            onChange={(e) => setTicker(e.target.value)}
-            placeholder="AAPL"
-            className="mt-1 w-24 rounded border border-border bg-transparent px-2 py-1.5 text-sm font-mono uppercase text-foreground"
+          Ticker or company
+          <SearchBox
+            key={searchKey}
+            compact
+            onSelect={(t) => setTicker(t)}
+            placeholder="AAPL or Apple"
+            inputClassName="mt-1 w-40 rounded border border-border bg-transparent px-2 py-1.5 text-sm text-foreground"
           />
         </label>
         <label className="flex flex-col text-xs text-muted">
