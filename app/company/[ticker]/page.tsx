@@ -6,9 +6,14 @@ import Link from "next/link";
 import BarChart from "@/components/BarChart";
 import StockChart from "@/app/components/StockChart";
 import StatementTable from "@/components/StatementTable";
+import NewsList, { type NewsItem } from "@/components/NewsList";
+import AnalystRatings, { type AnalystData } from "@/components/AnalystRatings";
+import EarningsCalendar, { type EarningsData } from "@/components/EarningsCalendar";
+import PeerValuation from "@/components/PeerValuation";
 import { buildStatements } from "@/lib/statements";
 import { downloadStatementsCsv, downloadStatementsPdf } from "@/lib/export";
 import { downloadIcs } from "@/lib/ics";
+import { computeMultiples } from "@/lib/multiples";
 
 type Point = { year: number; value: number | null };
 type Filing = { form: string; date: string; title: string; url: string };
@@ -55,13 +60,6 @@ function fmtUSD(n: number) {
   return `$${n.toLocaleString()}`;
 }
 
-function latestKnown(points: Point[]): number | null {
-  for (let i = points.length - 1; i >= 0; i--) {
-    if (points[i].value !== null) return points[i].value;
-  }
-  return null;
-}
-
 // Dense label/value row for the Capital-IQ-style summary boxes.
 function Row({
   label,
@@ -82,7 +80,15 @@ function Row({
   );
 }
 
-const TABS = ["Overview", "Financials", "Filings"] as const;
+const TABS = [
+  "Overview",
+  "Financials",
+  "Filings",
+  "News",
+  "Analysts",
+  "Earnings",
+  "Valuation",
+] as const;
 type Tab = (typeof TABS)[number];
 
 export default function CompanyDashboard() {
@@ -91,9 +97,19 @@ export default function CompanyDashboard() {
 
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [price, setPrice] = useState<PriceData | null>(null);
+  const [news, setNews] = useState<NewsItem[] | null>(null);
+  const [analysts, setAnalysts] = useState<AnalystData | null>(null);
+  const [earnings, setEarnings] = useState<EarningsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Overview");
+  const [now, setNow] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Intentional: captures a render-safe "now" for relative news timestamps.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNow(Date.now());
+  }, []);
 
   useEffect(() => {
     if (!ticker) return;
@@ -102,6 +118,9 @@ export default function CompanyDashboard() {
     setError(null);
     setDossier(null);
     setPrice(null);
+    setNews(null);
+    setAnalysts(null);
+    setEarnings(null);
 
     (async () => {
       const dossierRes = await fetch(`/api/company/${ticker}`);
@@ -115,11 +134,35 @@ export default function CompanyDashboard() {
       setDossier(dossierJson);
       setLoading(false);
 
-      // Price is best-effort — a dashboard is still useful without it.
+      // Price and news are best-effort — a dashboard is still useful without them.
       try {
         const priceRes = await fetch(`/api/company/${ticker}/price`);
         const priceJson = await priceRes.json();
         if (!cancelled && priceRes.ok) setPrice(priceJson);
+      } catch {
+        // ignore
+      }
+
+      try {
+        const newsRes = await fetch(`/api/company/${ticker}/news`);
+        const newsJson = await newsRes.json();
+        if (!cancelled && newsRes.ok) setNews(newsJson.news);
+      } catch {
+        // ignore
+      }
+
+      try {
+        const analystsRes = await fetch(`/api/company/${ticker}/analysts`);
+        const analystsJson = await analystsRes.json();
+        if (!cancelled && analystsRes.ok) setAnalysts(analystsJson);
+      } catch {
+        // ignore
+      }
+
+      try {
+        const earningsRes = await fetch(`/api/company/${ticker}/earnings`);
+        const earningsJson = await earningsRes.json();
+        if (!cancelled && earningsRes.ok) setEarnings(earningsJson);
       } catch {
         // ignore
       }
@@ -132,27 +175,10 @@ export default function CompanyDashboard() {
 
   const statements = useMemo(() => (dossier ? buildStatements(dossier) : []), [dossier]);
 
-  const multiples = useMemo(() => {
-    if (!dossier) return null;
-    const eps = latestKnown(dossier.incomeStatement.eps);
-    const revenue = latestKnown(dossier.incomeStatement.revenue);
-    const netIncome = latestKnown(dossier.incomeStatement.netIncome);
-    const assets = latestKnown(dossier.balanceSheet.totalAssets);
-    const equity = latestKnown(dossier.balanceSheet.stockholdersEquity);
-    const shares = dossier.sharesOutstanding;
-    const marketCap = price && shares ? price.currentPrice * shares : null;
-    return {
-      eps,
-      revenue,
-      netIncome,
-      assets,
-      shares,
-      marketCap,
-      pe: price && eps !== null && eps > 0 ? price.currentPrice / eps : null,
-      pb: marketCap && equity && equity > 0 ? marketCap / equity : null,
-      ps: marketCap && revenue && revenue > 0 ? marketCap / revenue : null,
-    };
-  }, [dossier, price]);
+  const multiples = useMemo(
+    () => (dossier ? computeMultiples({ dossier, price }) : null),
+    [dossier, price]
+  );
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
@@ -385,6 +411,54 @@ export default function CompanyDashboard() {
                     </li>
                   ))}
                 </ul>
+              )}
+            </section>
+          )}
+
+          {tab === "News" && (
+            <section className="rounded-xl border border-border bg-surface p-5">
+              {news === null || now === null ? (
+                <p className="text-sm text-muted">Loading news…</p>
+              ) : (
+                <NewsList news={news} now={now} />
+              )}
+            </section>
+          )}
+
+          {tab === "Analysts" && (
+            <section className="rounded-xl border border-border bg-surface p-5">
+              {analysts === null ? (
+                <p className="text-sm text-muted">Loading analyst ratings…</p>
+              ) : (
+                <AnalystRatings data={analysts} />
+              )}
+            </section>
+          )}
+
+          {tab === "Earnings" && (
+            <section className="rounded-xl border border-border bg-surface p-5">
+              {earnings === null ? (
+                <p className="text-sm text-muted">Loading earnings calendar…</p>
+              ) : (
+                <EarningsCalendar
+                  data={earnings}
+                  ticker={dossier.ticker}
+                  name={dossier.name}
+                />
+              )}
+            </section>
+          )}
+
+          {tab === "Valuation" && (
+            <section className="rounded-xl border border-border bg-surface p-5">
+              {multiples === null ? (
+                <p className="text-sm text-muted">Loading valuation…</p>
+              ) : (
+                <PeerValuation
+                  ticker={dossier.ticker}
+                  name={dossier.name}
+                  multiples={multiples}
+                />
               )}
             </section>
           )}
