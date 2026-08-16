@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 export type IndexData = {
   symbol: string;
   name: string;
@@ -27,6 +29,7 @@ function Sparkline({
   series: { close: number }[];
   positive: boolean;
 }) {
+  const gradientId = useId();
   if (series.length < 2) return null;
   const closes = series.map((p) => p.close);
   const min = Math.min(...closes);
@@ -34,19 +37,28 @@ function Sparkline({
   const span = max - min || 1;
   const width = 100;
   const height = 24;
-  const points = closes
-    .map((c, i) => {
-      const x = (i / (closes.length - 1)) * width;
-      const y = height - ((c - min) / span) * height;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
+  const coords = closes.map((c, i) => ({
+    x: (i / (closes.length - 1)) * width,
+    y: height - ((c - min) / span) * height,
+  }));
+  const points = coords.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  // Same gradient-wash treatment as the main stock chart's area series —
+  // a soft fill under the line, not a bare polyline.
+  const fillPoints = `0,${height} ${points} ${width},${height}`;
+  const colorVar = positive ? "var(--positive)" : "var(--negative)";
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
       className="h-6 w-full"
       preserveAspectRatio="none"
     >
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={colorVar} stopOpacity={0.22} />
+          <stop offset="100%" stopColor={colorVar} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <polygon points={fillPoints} fill={`url(#${gradientId})`} stroke="none" />
       <polyline
         points={points}
         fill="none"
