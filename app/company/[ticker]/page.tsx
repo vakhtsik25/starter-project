@@ -7,6 +7,7 @@ import BarChart from "@/components/BarChart";
 import StockChart from "@/app/components/StockChart";
 import StatementTable from "@/components/StatementTable";
 import NewsList, { type NewsItem } from "@/components/NewsList";
+import AnalystRatings, { type AnalystData } from "@/components/AnalystRatings";
 import { buildStatements } from "@/lib/statements";
 import { downloadStatementsCsv, downloadStatementsPdf } from "@/lib/export";
 import { downloadIcs } from "@/lib/ics";
@@ -83,7 +84,7 @@ function Row({
   );
 }
 
-const TABS = ["Overview", "Financials", "Filings", "News"] as const;
+const TABS = ["Overview", "Financials", "Filings", "News", "Analysts"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function CompanyDashboard() {
@@ -93,6 +94,7 @@ export default function CompanyDashboard() {
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [price, setPrice] = useState<PriceData | null>(null);
   const [news, setNews] = useState<NewsItem[] | null>(null);
+  const [analysts, setAnalysts] = useState<AnalystData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Overview");
@@ -112,6 +114,7 @@ export default function CompanyDashboard() {
     setDossier(null);
     setPrice(null);
     setNews(null);
+    setAnalysts(null);
 
     (async () => {
       const dossierRes = await fetch(`/api/company/${ticker}`);
@@ -138,6 +141,14 @@ export default function CompanyDashboard() {
         const newsRes = await fetch(`/api/company/${ticker}/news`);
         const newsJson = await newsRes.json();
         if (!cancelled && newsRes.ok) setNews(newsJson.news);
+      } catch {
+        // ignore
+      }
+
+      try {
+        const analystsRes = await fetch(`/api/company/${ticker}/analysts`);
+        const analystsJson = await analystsRes.json();
+        if (!cancelled && analystsRes.ok) setAnalysts(analystsJson);
       } catch {
         // ignore
       }
@@ -413,6 +424,16 @@ export default function CompanyDashboard() {
                 <p className="text-sm text-muted">Loading news…</p>
               ) : (
                 <NewsList news={news} now={now} />
+              )}
+            </section>
+          )}
+
+          {tab === "Analysts" && (
+            <section className="rounded-xl border border-border bg-surface p-5">
+              {analysts === null ? (
+                <p className="text-sm text-muted">Loading analyst ratings…</p>
+              ) : (
+                <AnalystRatings data={analysts} />
               )}
             </section>
           )}
