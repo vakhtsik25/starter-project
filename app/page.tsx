@@ -5,6 +5,7 @@ import MarketOverview, { type IndexData } from "@/components/MarketOverview";
 import NewsList, { type NewsItem } from "@/components/NewsList";
 import UpcomingEarnings, { type UpcomingEarning } from "@/components/UpcomingEarnings";
 import { buildMarketSnapshot } from "@/lib/market-snapshot";
+import { loadProfile, type Profile } from "@/lib/profile";
 
 export default function Home() {
   const [indices, setIndices] = useState<IndexData[] | null>(null);
@@ -14,11 +15,14 @@ export default function Home() {
     windowDays: number;
   } | null>(null);
   const [now, setNow] = useState<number | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
-    // Intentional: captures a render-safe "now" for relative news timestamps.
+    // Intentional: captures a render-safe "now" for relative news timestamps,
+    // and hydrates the local profile for the greeting below.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setNow(Date.now());
+    setProfile(loadProfile());
   }, []);
 
   useEffect(() => {
@@ -75,6 +79,11 @@ export default function Home() {
     <main className="mx-auto max-w-3xl px-4 py-10">
       <header className="mb-8 text-center">
         <h1 className="text-3xl font-bold text-foreground">FinLens</h1>
+        {profile && (
+          <p className="mt-1 text-sm text-muted">
+            Welcome back, {profile.name} {profile.avatar}
+          </p>
+        )}
         <p className="mx-auto mt-2 max-w-md text-muted">
           Investor snapshots from the primary source — SEC EDGAR. Search a
           ticker or company name above to see historical financials, filings,

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SearchBox from "@/components/SearchBox";
 import ThemeToggle from "@/components/ThemeToggle";
+import ProfileMenu from "@/components/ProfileMenu";
 
 function TabLink({
   href,
@@ -66,8 +67,9 @@ export default function NavBar() {
             <SearchBox placeholder="Search company or ticker…" />
           </div>
 
-          <div className="shrink-0">
+          <div className="flex shrink-0 items-center gap-2">
             <ThemeToggle />
+            <ProfileMenu />
           </div>
         </div>
       </header>
