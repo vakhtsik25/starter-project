@@ -111,7 +111,7 @@ export default function RangeBrush({
       ref={trackRef}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      className="relative w-full h-12 select-none rounded border border-black/10 dark:border-white/15 bg-black/[.02] dark:bg-white/[.04] overflow-hidden touch-none"
+      className="relative w-full h-12 select-none rounded border border-border bg-background/40 overflow-hidden touch-none"
     >
       {sparklinePoints && (
         <svg
@@ -125,14 +125,14 @@ export default function RangeBrush({
             stroke="currentColor"
             strokeWidth="1"
             vectorEffect="non-scaling-stroke"
-            className="text-zinc-400 dark:text-zinc-600"
+            className="text-muted"
           />
         </svg>
       )}
 
       <div
         onPointerDown={handleMovePointerDown}
-        className="absolute inset-y-0 bg-blue-500/15 border-x-2 border-blue-500 cursor-grab active:cursor-grabbing"
+        className="absolute inset-y-0 bg-accent/15 border-x-2 border-accent cursor-grab active:cursor-grabbing"
         style={{ left: `${left * 100}%`, width: `${(right - left) * 100}%` }}
       />
       <div
