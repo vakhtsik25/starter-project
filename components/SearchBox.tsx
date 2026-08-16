@@ -12,6 +12,7 @@ export default function SearchBox({
   submitLabel = "Search",
   compact = false,
   inputClassName,
+  disabled = false,
 }: {
   placeholder?: string;
   autoFocus?: boolean;
@@ -21,6 +22,7 @@ export default function SearchBox({
   /** Renders a bare input (no wrapping <form>/button) for embedding inside another form. */
   compact?: boolean;
   inputClassName?: string;
+  disabled?: boolean;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -123,9 +125,11 @@ export default function SearchBox({
       onFocus={() => suggestions.length > 0 && setOpen(true)}
       placeholder={placeholder}
       autoFocus={autoFocus}
+      disabled={disabled}
       className={
-        inputClassName ??
-        "flex-1 rounded-full border border-border/60 bg-background/60 px-4 py-1.5 text-foreground focus:border-accent focus:bg-surface focus:outline-none"
+        (inputClassName ??
+          "flex-1 rounded-full border border-border/60 bg-background/60 px-4 py-1.5 text-foreground focus:border-accent focus:bg-surface focus:outline-none") +
+        (disabled ? " opacity-50" : "")
       }
     />
   );
@@ -139,7 +143,8 @@ export default function SearchBox({
           {input}
           <button
             type="submit"
-            className="rounded-full bg-accent px-5 py-1.5 font-medium text-accent-foreground hover:opacity-90"
+            disabled={disabled}
+            className="rounded-full bg-accent px-5 py-1.5 font-medium text-accent-foreground hover:opacity-90 disabled:opacity-50"
           >
             {submitLabel}
           </button>
