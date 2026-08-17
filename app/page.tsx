@@ -1,17 +1,65 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import MarketOverview, { type IndexData } from "@/components/MarketOverview";
 import NewsList, { type NewsItem } from "@/components/NewsList";
 import EarningsCalendarPreview from "@/components/EarningsCalendarPreview";
 import type { CalendarEntry } from "@/components/EarningsCalendarGrid";
+import MoversList from "@/components/MoversList";
+import type { Mover } from "@/app/api/market/movers/route";
 import { buildMarketSnapshot } from "@/lib/market-snapshot";
 import { loadProfile, type Profile } from "@/lib/profile";
+
+function DirectionCard({
+  href,
+  title,
+  description,
+  accent = false,
+}: {
+  href: string;
+  title: string;
+  description: string;
+  accent?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`group flex flex-col justify-between rounded-xl border p-5 transition-all hover:-translate-y-0.5 hover:shadow-md ${
+        accent
+          ? "border-accent bg-accent text-accent-foreground"
+          : "border-border bg-surface text-foreground"
+      }`}
+    >
+      <div>
+        <h3 className="text-base font-semibold">{title}</h3>
+        <p
+          className={`mt-1 text-sm ${
+            accent ? "text-accent-foreground/85" : "text-muted"
+          }`}
+        >
+          {description}
+        </p>
+      </div>
+      <span
+        className={`mt-4 inline-flex items-center gap-1 text-sm font-medium ${
+          accent ? "text-accent-foreground" : "text-accent"
+        }`}
+      >
+        {accent ? "Get started" : "Explore"}
+        <span aria-hidden="true" className="transition-transform group-hover:translate-x-0.5">
+          →
+        </span>
+      </span>
+    </Link>
+  );
+}
 
 export default function Home() {
   const [indices, setIndices] = useState<IndexData[] | null>(null);
   const [news, setNews] = useState<NewsItem[] | null>(null);
   const [earnings, setEarnings] = useState<CalendarEntry[] | null>(null);
+  const [movers, setMovers] = useState<{ gainers: Mover[]; losers: Mover[] } | null>(null);
   const [now, setNow] = useState<number | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
 
@@ -32,6 +80,22 @@ export default function Home() {
         if (!cancelled) setIndices(json.indices);
       } catch {
         // Market overview is best-effort — the page is still useful without it.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/market/movers");
+        const json = await res.json();
+        if (!cancelled && res.ok) setMovers(json);
+      } catch {
+        // Best-effort.
       }
     })();
     return () => {
@@ -75,19 +139,62 @@ export default function Home() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
-      <header className="mb-8 text-center">
-        <h1 className="text-3xl font-bold text-foreground">FinLens</h1>
+      <header className="mb-10 text-center">
+        <h1 className="text-4xl font-bold tracking-tight text-foreground text-balance">
+          See what&apos;s really in the numbers.
+        </h1>
         {profile && (
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-2 text-sm text-muted">
             Welcome back, {profile.name} {profile.avatar}
           </p>
         )}
-        <p className="mx-auto mt-2 max-w-md text-muted">
-          Investor snapshots from the primary source — SEC EDGAR. Search a
-          ticker or company name above to see historical financials, filings,
-          and stock price history.
+        <p className="mx-auto mt-3 max-w-lg text-muted text-balance">
+          Plain-language stock research pulled straight from SEC filings and
+          live market data — explore any company, track today&apos;s movers,
+          and start investing when you&apos;re ready.
         </p>
       </header>
+
+      <section className="mb-10 grid gap-4 sm:grid-cols-3">
+        <DirectionCard
+          href="/stocks"
+          title="Explore stocks"
+          description="Search any public company for financials, filings, and price history — explained simply."
+        />
+        <DirectionCard
+          href="#movers"
+          title="Today's movers"
+          description="See which stocks are up or down right now, and by how much."
+        />
+        <DirectionCard
+          href="/early-access"
+          title="Start investing"
+          description="Get matched with an approach that fits your goals and risk comfort."
+          accent
+        />
+      </section>
+
+      <section id="movers" className="mb-6 scroll-mt-24 rounded-xl border border-border bg-surface p-5 shadow-sm">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+          Today&apos;s Gainers &amp; Losers
+        </h2>
+        {movers ? (
+          <div className="grid gap-6 sm:grid-cols-2">
+            <MoversList title="Gainers" movers={movers.gainers} positive />
+            <MoversList title="Losers" movers={movers.losers} positive={false} />
+          </div>
+        ) : (
+          <div className="grid animate-pulse gap-6 sm:grid-cols-2">
+            {[0, 1].map((i) => (
+              <div key={i} className="space-y-2">
+                {[1, 2, 3].map((j) => (
+                  <div key={j} className="h-10 rounded bg-background" />
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="mb-6 rounded-xl border border-border bg-surface p-5 shadow-sm">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
