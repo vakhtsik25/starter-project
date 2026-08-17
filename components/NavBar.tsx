@@ -70,6 +70,9 @@ export default function NavBar() {
             <TabLink href="/portfolio" active={isPortfolio}>
               Portfolio
             </TabLink>
+            <TabLink href="/early-access" active={false}>
+              Invest
+            </TabLink>
           </nav>
 
           <div className="min-w-[200px] max-w-sm flex-1">

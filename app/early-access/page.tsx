@@ -110,11 +110,10 @@ export default function EarlyAccessPage() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-16">
       <header className="mb-10 text-center">
-        <h1 className="text-3xl font-bold text-foreground">FinLens</h1>
-        <p className="mx-auto mt-3 max-w-lg text-lg text-muted">
+        <h1 className="mx-auto max-w-lg text-lg text-muted">
           Understand a stock in plain language before you decide whether to
           invest — and how much.
-        </p>
+        </h1>
       </header>
 
       <section className="mb-10 grid gap-4 sm:grid-cols-3">
