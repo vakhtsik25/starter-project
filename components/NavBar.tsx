@@ -31,6 +31,11 @@ function TabLink({
 
 export default function NavBar() {
   const pathname = usePathname();
+
+  // The early-access landing page is a focused acquisition funnel — the
+  // site's normal nav would just give visitors a way to wander off it.
+  if (pathname.startsWith("/early-access")) return null;
+
   const isHome = pathname === "/" || pathname.startsWith("/company");
   const isStocks = pathname.startsWith("/stocks");
   const isScreener = pathname.startsWith("/screener");
