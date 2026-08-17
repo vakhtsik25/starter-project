@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { track, identify } from "@/lib/posthog";
+import { track } from "@/lib/analytics";
 
 type SampleStock = {
   symbol: string;
@@ -145,7 +145,6 @@ export default function EarlyAccessPage() {
     e.preventDefault();
     if (!email || !amountTier) return;
     setSubmitting(true);
-    identify(email, { amount_tier: amountTier });
     track("signup_completed", { amount_tier: amountTier, email });
     setSubmitted(true);
     setSubmitting(false);
