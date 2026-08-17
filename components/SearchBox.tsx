@@ -128,7 +128,7 @@ export default function SearchBox({
       disabled={disabled}
       className={
         (inputClassName ??
-          "flex-1 rounded-full border border-border/60 bg-background/60 px-4 py-1.5 text-foreground focus:border-accent focus:bg-surface focus:outline-none") +
+          "min-w-0 flex-1 rounded-full border border-border/60 bg-background/60 px-4 py-1.5 text-foreground focus:border-accent focus:bg-surface focus:outline-none") +
         (disabled ? " opacity-50" : "")
       }
     />
