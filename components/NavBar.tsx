@@ -29,7 +29,7 @@ function TabLink({
   );
 }
 
-export default function NavBar() {
+export default function NavBar({ extra }: { extra?: React.ReactNode } = {}) {
   const pathname = usePathname();
   const isHome = pathname === "/" || pathname.startsWith("/company");
   const isStocks = pathname.startsWith("/stocks");
@@ -74,6 +74,7 @@ export default function NavBar() {
           <div className="flex shrink-0 items-center gap-2">
             <ThemeToggle />
             <ProfileMenu />
+            {extra}
           </div>
         </div>
       </header>
