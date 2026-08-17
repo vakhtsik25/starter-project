@@ -48,12 +48,11 @@ export default function JoinPage({
 
   return (
     <main className="mx-auto max-w-md px-4 py-16 text-center">
-      <h1 className="text-2xl font-bold text-foreground">FinLens</h1>
-      <p className="mt-3 text-muted">
+      <h1 className="text-lg text-muted">
         Starting with <strong className="text-foreground">{tier.label}</strong>{" "}
         ({tier.range}) — this just gets you on the early access list, no
         money moves yet.
-      </p>
+      </h1>
 
       <form onSubmit={handleSubmit} className="mx-auto mt-6 flex max-w-sm gap-2">
         <input
