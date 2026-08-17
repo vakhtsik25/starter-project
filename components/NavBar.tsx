@@ -75,13 +75,13 @@ export default function NavBar() {
             </TabLink>
           </nav>
 
-          <div className="min-w-[200px] max-w-sm flex-1">
-            <SearchBox placeholder="Search company or ticker…" />
-          </div>
-
           <div className="flex shrink-0 items-center gap-2">
             <ThemeToggle />
             <ProfileMenu />
+          </div>
+
+          <div className="min-w-[200px] max-w-sm flex-1">
+            <SearchBox placeholder="Search company or ticker…" />
           </div>
         </div>
       </header>
