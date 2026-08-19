@@ -2,7 +2,22 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import NavBar from "@/components/NavBar";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "FinLens",
+  url: SITE_URL,
+  description:
+    "Plain-language stock research and investing education, pulled from SEC filings and live market data.",
+  publisher: {
+    "@type": "Organization",
+    name: "FinLens",
+    url: SITE_URL,
+  },
+};
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,6 +59,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <NavBar />
